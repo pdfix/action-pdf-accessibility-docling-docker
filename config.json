@@ -1,0 +1,121 @@
+{
+    "name": "PDF Accessibility Docling",
+    "version": "v0.0.0",
+    "actions": [
+        {
+            "title": "AutoTag (Docling)",
+            "name": "pdfix_autotag_docling",
+            "desc": "Automatically tags PDF using Docling [Local]",
+            "version": "v0.0.0",
+            "icon": "docling_autotag",
+            "category": "Accessibility",
+            "local": "True",
+            "program": "docker run -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "args": [
+                {
+                    "name": "input_pdf",
+                    "desc": "Input PDF file",
+                    "flags": 2,
+                    "type": "file_path",
+                    "ext": "pdf",
+                    "value": ""
+                },
+                {
+                    "name": "output_pdf",
+                    "desc": "Output PDF file.",
+                    "flags": 4,
+                    "type": "file_path",
+                    "ext": "pdf",
+                    "value": ""
+                },
+                {
+                    "title": "Threshold",
+                    "name": "threshold",
+                    "desc": "Model threshold value for any detection. Number between 0 and 1. Default is 0.3.",
+                    "type": "float",
+                    "value": "0.3"
+                },
+                {
+                    "title": "Rendering Zoom Level",
+                    "name": "zoom",
+                    "desc": "Pages are provided as images that are rendered using this zoom level",
+                    "type": "float",
+                    "value": "2.0"
+                }
+            ],
+            "errors": {
+                "10": "Failed to parse arguments. Please check the usage and try again.",
+                "11": "Zoom level must between 1.0 and 10.0.",
+                "12": "Input file must be PDF document and output file must be JSON.",
+                "13": "Input and output file must be PDF documents.",
+                "14": "Not allowed input output file combination. Please see --help.",
+                "20": "Failed to initialize PDFix SDK.",
+                "21": "Failed to activate PDFix SDK acount.",
+                "22": "Failed to authorize PDFix SDK acount.",
+                "23": "Failed to render PDF Page into image.",
+                "24": "Failed to open PDF document.",
+                "25": "Failed to save PDF document.",
+                "26": "Failed to tag PDF document.",
+                "27": "Failed to create template JSON."
+            }
+        },
+        {
+            "title": "Create Layout Template JSON (Docling)",
+            "name": "pdfix_create_layout_template_json_docling",
+            "desc": "Automatically creates layout template json using Docling, saving it as JSON file [Local]",
+            "version": "v0.0.0",
+            "icon": "docling_template",
+            "category": "Accessibility",
+            "subtype": "create_layout_template_pdf_to_json_docling",
+            "local": "True",
+            "program": "docker run -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "args": [
+                {
+                    "name": "input_pdf",
+                    "desc": "Input PDF file",
+                    "flags": 2,
+                    "type": "file_path",
+                    "ext": "pdf",
+                    "value": ""
+                },
+                {
+                    "name": "output_json",
+                    "desc": "Output JSON file that is template json",
+                    "flags": 4,
+                    "type": "file_path",
+                    "ext": "json",
+                    "value": ""
+                },
+                {
+                    "title": "Threshold",
+                    "name": "threshold",
+                    "desc": "Model threshold value for any detection. Number between 0 and 1. Default is 0.3.",
+                    "type": "float",
+                    "value": "0.3"
+                },
+                {
+                    "title": "Rendering Zoom Level",
+                    "name": "zoom",
+                    "desc": "Pages are provided as images that are rendered using this zoom level",
+                    "type": "float",
+                    "value": "2.0"
+                }
+            ],
+            "errors": {
+                "10": "Failed to parse arguments. Please check the usage and try again.",
+                "11": "Zoom level must between 1.0 and 10.0.",
+                "12": "Input file must be PDF document and output file must be JSON.",
+                "13": "Input and output file must be PDF documents.",
+                "14": "Not allowed input output file combination. Please see --help.",
+                "20": "Failed to initialize PDFix SDK.",
+                "21": "Failed to activate PDFix SDK acount.",
+                "22": "Failed to authorize PDFix SDK acount.",
+                "23": "Failed to render PDF Page into image.",
+                "24": "Failed to open PDF document.",
+                "25": "Failed to save PDF document.",
+                "26": "Failed to tag PDF document.",
+                "27": "Failed to create template JSON."
+            }
+        }
+    ]
+}

@@ -1,0 +1,134 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Matches version tags like v1.0.0
+  workflow_dispatch:
+
+env:
+  DOCKER_HUB_NAMESPACE: pdfix
+  DOCKER_HUB_REPOSITORY: pdf-accessibility-docling
+jobs:
+  push_to_registry:
+    name: Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set Docker tag
+        id: vars
+        run: |
+          if [[ $GITHUB_EVENT_NAME == 'workflow_dispatch' || $GITHUB_REF == refs/heads/main ]]; then
+            echo "tag=latest" >> $GITHUB_ENV
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+
+      - name: Update config.json version
+        run: chmod +x update_version.sh && ./update_version.sh ${{ env.tag }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}
+          tags: ${{ env.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download models data into ./model
+        run: |
+          mkdir -p ./models
+          python download_models.py
+          mkdir -p ./model
+          cp -L ./models/models--HuggingPanda--docling-layout/snapshots/*/* ./model
+          rm -rf ./models
+
+      - name: Clean up github runners (that is not used for this build)
+        run: |
+          sudo rm -rf /usr/share/dotnet \
+              /opt/ghc \
+              /usr/local/lib/android \
+              /usr/lib/jvm
+
+      - name: Run tests
+        run: chmod +x test.sh && ./test.sh
+
+      - name: Clean all that can be cleaned for Docker
+        run: |
+          docker system prune -a --volumes -f
+          docker buildx prune --all --force
+          docker builder prune --all --force
+          docker container prune -f
+          docker image prune -a -f
+
+      - name: Clean up python dependencies and cache and python
+        run: |
+          pip uninstall -y -r requirements.txt || true
+          rm -rf ~/.cache/pip
+          sudo apt-get remove -y python3 || true
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}
+
+      - name: Upload to FTP
+        run: |
+          curl -T config.json ftp.pdfix.net/update-service/v1/actions/${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}/config.json --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" --ftp-create-dirs
+
+      - name: Prepare directory for versions repository
+        run: mkdir -p pdfix-version-updates
+
+      - name: Checkout versions repository
+        uses: actions/checkout@v4
+        with:
+          repository: pdfix/pdfix-version-updates
+          path: pdfix-version-updates
+          token: ${{ secrets.PAT_VERSIONS }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Update versions repository with new version
+        run: chmod +x update_versions_repository.sh && ./update_versions_repository.sh ${{ env.DOCKER_HUB_NAMESPACE }} ${{ env.DOCKER_HUB_REPOSITORY }} ${{ env.tag }}

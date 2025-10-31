@@ -1,0 +1,24 @@
+name: Type Check
+on:
+  push:
+    branches:
+      - '**'         # Match pushes to any branch (even feat/feature)
+  pull_request:
+    branches:
+      - '**'         # Match PRs targeting any branch (even feat/feature)
+jobs:
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install mypy
+        run: pip install mypy
+      - name: Install requests type stubs (so mypy won't complain)
+        run: pip install types-requests
+      - name: Run mypy
+        run: mypy  .
