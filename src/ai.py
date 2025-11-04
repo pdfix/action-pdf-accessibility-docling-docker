@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -15,7 +16,7 @@ from logger import get_logger
 
 logger: logging.Logger = get_logger()
 
-LAYOUT_MODEL_PATH: str = "model"
+LAYOUT_MODEL_PATH: str = Path(__file__).parent.parent.joinpath("model").resolve().as_posix()
 # FORMULA_MODEL: str = "ds4sd/CodeFormulaV2"
 # FORMULA_MODEL_PATH: str = "formula-model"
 # TABLE_MODEL: str = "ds4sd/docling-models"

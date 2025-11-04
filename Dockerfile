@@ -31,16 +31,15 @@ COPY src/ /usr/docling/src/
 # RUN venv/bin/python3 download_models.py
 
 # Copy models data that we moved from original snapshot location
-COPY model/ /usr/docling/src/model
+COPY model/ /usr/docling/model
 
 
 # Set Hugging Face environment variable to avoid online fetch
 ENV TRANSFORMERS_OFFLINE=1
 
 
-# Add softlink for the model directory into root directory
-RUN mkdir -p /data && \
-    ln -s /usr/docling/src/model /model
+# Add data folder into image
+RUN mkdir -p /data
 
 
 # License
