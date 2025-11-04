@@ -53,7 +53,6 @@ else
     error "config.json not saved"
     EXIT_STATUS=1
 fi
-fi
 
 info "Test #03: Run autotag PDF"
 docker run --rm $PLATFORM -v $(pwd):/data -w /data $DOCKER_IMAGE tag -i example/AutoTag_Sample.pdf -o $TEMPORARY_DIRECTORY/passed.pdf > /dev/null
@@ -65,12 +64,13 @@ else
 fi
 
 info "Test #04: Run generate layout template for PDF"
-docker run --rm $PLATFORM -v $(pwd):/data -w /data $DOCKER_IMAGE template -i example/AutoTag_Sample.pdf -o $TEMPORARY_DIRECTORY/passed.jsonl > /dev/null
+docker run --rm $PLATFORM -v $(pwd):/data -w /data $DOCKER_IMAGE template -i example/AutoTag_Sample.pdf -o $TEMPORARY_DIRECTORY/passed.json > /dev/null
 if [ -f "$(pwd)/$TEMPORARY_DIRECTORY/passed.json" ]; then
     success "passed"
 else
     error "generate layout template failed on example/AutoTag_Sample.pdf"
     EXIT_STATUS=1
+fi
 
 info "Cleaning up temporary files from tests"
 rm -f $TEMPORARY_DIRECTORY/config.json

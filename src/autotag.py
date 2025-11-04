@@ -99,7 +99,10 @@ class AutotagUsingDoclingLayoutRecognition:
         template_json_dict: dict = template_json_creator.create_json_dict_for_document(self.zoom)
 
         # Save template to file
-        template_path: Path = Path(__file__).parent.joinpath("../output/{id}-template_json.json").resolve()
+        output_directory: Path = Path(__file__).parent.parent.joinpath("output").resolve()
+        output_directory.mkdir()
+        id: str = Path(self.input_path_str).stem
+        template_path: Path = output_directory.joinpath(f"{id}-template_json.json")
         with open(template_path, "w") as file:
             file.write(json.dumps(template_json_dict, indent=2))
 
