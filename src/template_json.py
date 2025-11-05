@@ -206,7 +206,6 @@ class TemplateJsonCreator:
                     element["flag"] = "no_join|no_split"
                     element["text_flag"] = "no_new_line"
                     element["type"] = "pde_text"
-                    continue
 
                 case "Section-header":
                     element["heading"] = "h1"
