@@ -1,17 +1,34 @@
-import json
-import logging
+import re
 from datetime import date
-from pathlib import Path
-from typing import Any
+from typing import Optional
 
-from pdfixsdk import PdfDevRect, PdfPageView, PdfRect, __version__
+from docling_core.types.doc import (
+    BoundingBox,
+    CodeItem,
+    ContentLayer,
+    CoordOrigin,
+    DocItem,
+    DocItemLabel,
+    FloatingItem,
+    FormItem,
+    FormulaItem,
+    GroupItem,
+    InlineGroup,
+    KeyValueItem,
+    ListGroup,
+    ListItem,
+    NodeItem,
+    PictureItem,
+    ProvenanceItem,
+    SectionHeaderItem,
+    TableCell,
+    TableData,
+    TableItem,
+    TextItem,
+    TitleItem,
+)
 
-from ai import Region
-from constants import CONFIG_FILE
-from logger import get_logger
-from process_bboxes import PostProcessingBBoxes
-
-logger: logging.Logger = get_logger()
+from ai import InternalDocument, InternalElement, InternalPage
 
 
 class TemplateJsonCreator:
@@ -19,30 +36,31 @@ class TemplateJsonCreator:
     Class that prepares each page and in the end creates whole template json file for PDFix-SDK
     """
 
+    # Constants
+    CONFIG_FILE = "config.json"
+
     def __init__(self) -> None:
         """
         Initializes pdfix sdk template json creation by preparing list for each page.
         """
         self.template_json_pages: list = []
 
-    def create_json_dict_for_document(self, zoom: float) -> dict:
+    def process_document(self, document: InternalDocument) -> dict:
         """
         Prepare PDFix SDK json template for whole document.
 
         Args:
-            zoom (float): Zoom level that page was rendered with.
+            document (InternalDocument): Docling data in hierarchy.
 
         Returns:
             Template json for whole document
         """
         created_date: str = date.today().strftime("%Y-%m-%d")
-        image_info: str = f"transforms in this docker image of version: {self._get_current_version()}"
         metadata: dict = {
-            "author": "Generated using Docling layout",
+            "author": "Generated using Docling Project AI",
             "created": created_date,
             "modified": created_date,
-            "notes": f"Created using Docling layout, PDFix SDK and {image_info} with zoom: {zoom}",
-            "sdk_version": __version__,
+            "notes": f"Created using Docling Project {document.docling_version}",
             # we are creating first one always so it is always "1"
             "version": "1",
         }
@@ -56,6 +74,10 @@ class TemplateJsonCreator:
             }
         ]
 
+        for page in document.pages:
+            page_dict: dict = self.process_page(page)
+            self.template_json_pages.append(page_dict)
+
         return {
             "metadata": metadata,
             "template": {
@@ -64,200 +86,432 @@ class TemplateJsonCreator:
             },
         }
 
-    def process_page(self, results: list[Region], page_number: int, page_view: PdfPageView) -> None:
+    def process_page(self, page: InternalPage) -> dict:
         """
         Prepare json template for PDFix SDK for one page and save it internally to use later in
         create_json_dict_for_document.
 
         Args:
-            results (list[Region]): List of all regions on page.
-            page_number (int): PDF file page number.
-            page_view (PdfPageView): The view of the PDF page used for coordinate conversion.
-            zoom (float): Zoom level that page was rendered with.
+            page (InternalPage): Results from docling about page.
+
+        Returns:
+            Json dict for one page.
         """
-        elements: list = self._create_json_for_elements(results, page_view)
+        page_elements: list = self._create_page(page)
 
         json_for_page = {
-            "comment": f"Page {page_number}",
-            "elements": elements,
+            "comment": f"Page {page.number}",
+            "elements": page_elements,
             "query": {
-                "$and": [{"$page_num": page_number}],
+                "$and": [{"$page_num": page.number}],
             },
             "statement": "$if",
         }
-        self.template_json_pages.append(json_for_page)
+        return json_for_page
 
-    def _get_current_version(self) -> str:
-        """
-        Read the current version from config.json.
-
-        Returns:
-            The current version of the Docker image.
-        """
-        config_path: Path = Path(__file__).parent.joinpath(f"../{CONFIG_FILE}").resolve()
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-                return config.get("version", "unknown")
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Error reading {CONFIG_FILE}: {e}")
-            return "unknown"
-
-    def _create_json_for_elements(self, results: list[Region], page_view: PdfPageView) -> list:
+    def _create_page(self, page: InternalPage) -> list:
         """
         Prepare initial structural elements for the template based on
         detected regions.
 
         Args:
-            results (list[Region]): List of all regions on page.
-            page_view (PdfPageView): The view of the PDF page used for coordinate conversion.
+            page (InternalPage): Results from docling about page.
 
         Returns:
             List of elements with parameters.
         """
-        elements: list = []
+        results: list = []
 
-        # TODO For now highest score object wins. In future prioritise Table object.
-        post_processor: PostProcessingBBoxes = PostProcessingBBoxes(results)
-        regions: list[Region] = post_processor.get_list_of_regions()
-        # regions: list[Region] = results
+        page_h: float = page.height
 
-        for region in regions:
-            element: dict[str, Any] = {}
+        for element in page.ordered_elements:
+            result: dict = self._create_element(element, None, page_h)
 
-            rect: PdfDevRect = PdfDevRect()
-            offset: int = 2
-            rect.left = int(region.box[0] - offset)
-            rect.top = int(region.box[1] - offset)
-            rect.right = int(region.box[2] + offset)
-            rect.bottom = int(region.box[3] + offset)
+            results.append(result)
 
-            bbox: PdfRect = page_view.RectToPage(rect)
-            element["bbox"] = [str(bbox.left), str(bbox.bottom), str(bbox.right), str(bbox.top)]
-            logger.debug(f"FROM : {region.box} CREATED: {element['bbox']}")
-            label = region.label.lower()
-            element["comment"] = f"{label} {round(region.score * 100)}%"
+        return results
 
-            # List of types:
-            match region.label:
-                case "Caption":
-                    element["tag"] = "Caption"
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+    def _create_element(
+        self,
+        element: InternalElement,
+        parent_element: Optional[InternalElement],
+        page_height: float,
+    ) -> dict:
+        """
+        Create element dict for json as pdfix template expects.
 
-                case "Checkbox-Selected":  # For now text is ok
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        Args:
+            element (InternalElement): Element to create dict for.
+            parent_element (Optional[InternalElement]): Parent element if any.
+            page_height (float): Height of the page to convert bbox.
 
-                case "Checkbox-Unselected":  # For now text is ok
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        Returns:
+            Element dict for json.
+        """
+        result: dict = {}
 
-                case "Code":
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        item: NodeItem = element.item
+        element_ref: str = self._get_element_ref(element, element.provenance_index)
+        result["name"] = element_ref
+        if element.provenance_index > 0:
+            result["Continuous"] = self._get_element_ref(element, 0)
+        bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_height)
+        if bbox_list is not None:
+            result["bbox"] = bbox_list
+        label: str = self._get_label(element)
+        layer: str = self._get_content_layer(element)
+        result["comment"] = f"{element_ref} Label: {label} Layer: {layer}"
+        if parent_element is not None:
+            result["parent"] = self._get_element_ref(parent_element, parent_element.provenance_index)
 
-                case "Document Index":  # NO IDEA - For now text is ok
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        children: list = []
 
-                case "Footnote":
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        for child in element.children:
+            child_result: dict = self._create_element(child, element, page_height)
+            children.append(child_result)
 
-                case "Form":  # TODO For now ignore it
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        if len(children) > 0:
+            result["element_template"] = {
+                "template": {
+                    "element_create": [{"elements": children, "statement": "$if"}],
+                },
+            }
 
-                case "Formula":
-                    element["tag"] = "Formula"
-                    element["flag"] = "no_join|no_split"
-                    element["type"] = "pde_image"
+        if isinstance(item, TitleItem):
+            result["tag"] = "Title"
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, SectionHeaderItem):
+            level: int = item.level
+            result["comment"] = f"{result['comment']} {level}"
+            result["heading"] = f"h{level}"
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, ListItem):
+            result["numbering"] = self._get_list_type(item)
+            result["marker"] = item.marker
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, CodeItem):
+            language: str = item.code_language
+            result["comment"] = f"{result['comment']} {language}"
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, FormulaItem):
+            result["tag"] = "Formula"
+            result["flag"] = "no_join|no_split"
+            result["type"] = "pde_image"
+        elif isinstance(item, TextItem):
+            result["comment"] = f"{result['comment']} {str(item.label)}"
+            match item.label:
+                case DocItemLabel.CAPTION:
+                    result["tag"] = "Caption"
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.CHECKBOX_SELECTED:
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.CHECKBOX_UNSELECTED:
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.FOOTNOTE:
+                    result["tag"] = "Note"
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.PAGE_FOOTER:
+                    result["flag"] = "footer|artifact|no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.PAGE_HEADER:
+                    result["flag"] = "header|artifact|no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.PARAGRAPH:
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.REFERENCE:
+                    # TODO Try
+                    result["tag"] = "Reference"
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.TEXT:
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+                case DocItemLabel.EMPTY_VALUE:
+                    result["flag"] = "no_join|no_split"
+                    result["text_flag"] = "no_new_line"
+                    result["type"] = "pde_text"
+        elif isinstance(item, PictureItem):
+            result["flag"] = "no_join|no_split"
+            result["type"] = "pde_image"
+        elif isinstance(item, TableItem):
+            table_data: TableData = item.data
+            cells: list = self._create_cells(table_data, page_height)
+            if "element_template" not in result:
+                result["element_template"] = {
+                    "template": {
+                        "element_create": [{"elements": cells, "statement": "$if"}],
+                    },
+                }
+            else:
+                existing_children: list = result["element_template"]["template"]["element_create"][0]["elements"]
+                existing_children.extend(cells)
+            result["row_num"] = table_data.num_rows
+            result["col_num"] = table_data.num_cols
+            result["flag"] = "no_join|no_split"
+            result["type"] = "pde_table"
+        elif isinstance(item, KeyValueItem):
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, FormItem):
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, ListGroup):
+            result["flag"] = "no_join|no_split"
+            result["type"] = "pde_list"
+            pass
+        elif isinstance(item, InlineGroup):
+            # Default - should not get here
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, GroupItem):
+            # Default - should not get here
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, FloatingItem):
+            # Default - should not get here
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, DocItem):
+            # Default - should not get here
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
+        elif isinstance(item, NodeItem):
+            # Default - should not get here
+            result["flag"] = "no_join|no_split"
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
 
-                case "Key-Value Region":  # NO IDEA - For now text is ok
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        # TODO: if text element - add hyperlinks as "hyperlink"
 
-                case "Picture":
-                    element["flag"] = "no_join|no_split"
-                    element["type"] = "pde_image"
+        return result
 
-                case "Page-footer":
-                    element["flag"] = "footer|artifact|no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+    def _get_element_ref(self, element: InternalElement, provenance_index: int) -> str:
+        """
+        Get element reference for json as pdfix template expects.
 
-                case "Page-header":
-                    element["flag"] = "header|artifact|no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        Args:
+            element (InternalElement): Element to get reference for.
+            provenance_index (int): Provenance index of the element.
 
-                case "List-item":
-                    # Only text included so we cannot mark bullets/numbers as:
-                    # element["label"] = "label"
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        Returns:
+            Unique string reference for area in document.
+        """
+        id: str = element.item.self_ref.replace("#", "").replace("/", "")
+        if provenance_index >= 0:
+            return f"{id}_{provenance_index}"
+        # GroupItems do not have provenance
+        return id
 
-                case "Section-header":
-                    element["heading"] = "h1"
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+    def _get_template_bbox(self, element: InternalElement, page_height: float) -> Optional[list[str]]:
+        """
+        Get bounding box for json as pdfix template expects.
 
-                case "Table":  # TODO In future add TableFormer and observer output and what can be done with it
-                    # No information about table size
-                    # element["row_num"] = row_count
-                    # element["col_num"] = column_count
-                    # No information about cells
-                    # element["element_template"] = {
-                    #    "template": {
-                    #         "element_create": [{"elements": cell_elements, "query": {}, "statement": "$if"}],
-                    #    },
-                    # }
-                    # CELL INFO
-                    # cell_info: dict = {
-                    #     "cell_column": str(column),
-                    #     "cell_column_span": str(column_span),
-                    #     "cell_row": str(row),
-                    #     "cell_row_span": str(row_span),
-                    #     "cell_header": "false",
-                    #     "cell_scope": "column",
-                    #     "comment": f"Cell Pos: {cell_position} Span: {cell_span}",
-                    #     "type": "pde_cell",
-                    # }
-                    element["flag"] = "no_join|no_split"
-                    element["type"] = "pde_table"
+        Args:
+            element (InternalElement): Element to get bbox for.
+            page_height (float): Height of the page to convert bbox.
 
-                case "Text":
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        Returns:
+            List of strings representing bbox for json or None if not applicable.
+        """
+        item: NodeItem = element.item
+        if isinstance(item, DocItem):
+            provenance: ProvenanceItem = item.prov[element.provenance_index]
+            bbox: BoundingBox = self._get_bottom_left_bbox(provenance.bbox, page_height)
+            return self._convert_bbox_to_list_str(bbox)
 
-                case "Title":
-                    element["tag"] = "Title"
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+        return None
 
-                case _:
-                    logger.warning(f"No case for {region.label}")
-                    element["flag"] = "no_join|no_split"
-                    element["text_flag"] = "no_new_line"
-                    element["type"] = "pde_text"
+    def _convert_bbox_to_list_str(self, bbox: BoundingBox) -> list[str]:
+        """
+        Convert bounding box to list of strings as pdfix template expects.
 
-            elements.append(element)
+        Args:
+            bbox (BoundingBox): Bounding box to convert.
 
-        # Currently we are sorting BBoxes from top to bottom, left to right
-        # for other types of sorting (or keeping original Docling order) another sorting is needed)
-        elements = sorted(elements, key=lambda x: (float(x["bbox"][1]), 1000.0 - float(x["bbox"][0])), reverse=True)
+        Returns:
+            List of strings representing bbox for json.
+        """
+        return [
+            str(round(bbox.l, 2)),
+            str(round(bbox.b, 2)),
+            str(round(bbox.r, 2)),
+            str(round(bbox.t, 2)),
+        ]
 
-        return elements
+    def _get_bottom_left_bbox(self, bbox: BoundingBox, page_height: float) -> BoundingBox:
+        """
+        Convert bounding box to bottom-left origin if needed.
+
+        Args:
+            bbox (BoundingBox): Bounding box to convert.
+            page_height (float): Height of the page to convert bbox.
+
+        Returns:
+            Bounding box with bottom-left origin.
+        """
+        if bbox.coord_origin == CoordOrigin.TOPLEFT:
+            return bbox.to_bottom_left_origin(page_height)
+
+        return bbox
+
+    def _get_label(self, element: InternalElement) -> str:
+        """
+        Get label value for json as pdfix template expects.
+
+        Args:
+            element (InternalElement): Element to get label for.
+
+        Returns:
+            Label as string for json purposes.
+        """
+        item: NodeItem = element.item
+        if isinstance(item, DocItem):
+            return str(item.label)
+        if isinstance(item, GroupItem):
+            return str(item.label)
+        return ""
+
+    def _get_content_layer(self, element: InternalElement) -> str:
+        """
+        Get content layer value for json as pdfix template expects.
+
+        Args:
+            element (InternalElement): Element to get content layer for.
+
+        Returns:
+            Content layer as string for json purposes.
+        """
+        layer: ContentLayer = element.item.content_layer
+        return str(layer)
+
+    def _create_cells(self, table: TableData, page_height: float) -> list:
+        """
+        Create cell elements for table in json as pdfix template expects.
+
+        Args:
+            table (TableData): Table data from docling.
+            page_height (float): Height of the page to convert bbox.
+
+        Returns:
+            List of cell elements as dicts for json.
+        """
+        cells: list = []
+        table_cells: list[list[TableCell]] = table.grid
+
+        for row in table_cells:
+            for cell in row:
+                cell_row: int = cell.start_row_offset_idx + 1
+                cell_column: int = cell.start_col_offset_idx + 1
+                cell_scope: str = self._get_cell_scope(cell)
+                cell_dict: dict = {
+                    "cell_column": str(cell_row),
+                    "cell_column_span": str(cell.col_span),
+                    "cell_row": str(cell_column),
+                    "cell_row_span": str(cell.row_span),
+                    "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
+                    "cell_scope": cell_scope,
+                    "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
+                    "type": "pde_cell",
+                }
+                if cell.bbox:
+                    bbox: BoundingBox = self._get_bottom_left_bbox(cell.bbox, page_height)
+                    cell_dict["bbox"] = self._convert_bbox_to_list_str(bbox)
+                cells.append(cell_dict)
+
+        return cells
+
+    def _get_cell_scope(self, cell: TableCell) -> str:
+        """
+        Get cell scope value for json as pdfix template expects.
+
+        Args:
+            cell (TableCell): Cell to get scope for.
+
+        Returns:
+            "row", "column", "both" or "" depending on cell headers.
+        """
+        if cell.column_header and cell.row_header:
+            return "both"
+        elif cell.column_header:
+            return "column"
+        elif cell.row_header:
+            return "row"
+        return ""
+
+    def _convert_bool_to_str(self, value: bool) -> str:
+        """
+        Create value for json as pdfix template expects.
+
+        Args:
+            value (bool): Value to convert.
+
+        Returns:
+            Converted bool to string for json purposes.
+        """
+        return "true" if value else "false"
+
+    def _get_list_type(self, item: ListItem) -> str:
+        """
+        Get list type value for json as pdfix template expects.
+
+        Args:
+            group (GroupItem): Group to get list type for.
+
+        Returns:
+            List type as string for json purposes.
+        """
+        marker: str = item.marker.strip().rstrip(").:")
+        if item.enumerated:
+            if re.fullmatch(r"\d+", marker):
+                return "Decimal"
+            if re.fullmatch(r"M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})", marker):
+                return "UpperRoman"
+            if re.fullmatch(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", marker):
+                return "LowerRoman"
+            if re.fullmatch(r"[A-Z]", marker):
+                return "UpperAlpha"
+            if re.fullmatch(r"[a-z]", marker):
+                return "LowerAlpha"
+            if len(marker) > 1:
+                return "Description"
+            return "Ordered"
+        else:
+            if marker == "":
+                return "None"
+            if marker in ["•", "●", "◉", "◌", "◍", "◎", "○"]:
+                return "Disc"
+            if marker in ["▪", "▫", "■", "□", "▣", "▤", "▥", "▦", "▧", "▨", "▩"]:
+                return "Square"
+            if len(marker) > 1:
+                return "Description"
+            if marker in ["•", "−", "‣", "⁃", "∙", "–"]:
+                return "Unordered"
+        return "None"

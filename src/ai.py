@@ -1,133 +1,155 @@
+import json
 import logging
+import traceback
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
-import torch
-from PIL import Image
-from transformers import (
-    # AutoModelForCausalLM,
-    # AutoProcessor,
-    BatchFeature,
-    RTDetrForObjectDetection,
-    RTDetrImageProcessor,
+from docling.datamodel.document import ConversionResult
+from docling.document_converter import DocumentConverter
+from docling_core.types.doc import (
+    DocItem,
+    DoclingDocument,
+    GroupItem,
+    NodeItem,
+    ProvenanceItem,
 )
 
 from logger import get_logger
 
 logger: logging.Logger = get_logger()
 
-LAYOUT_MODEL_PATH: str = Path(__file__).parent.parent.joinpath("model").resolve().as_posix()
-# FORMULA_MODEL: str = "ds4sd/CodeFormulaV2"
-# FORMULA_MODEL_PATH: str = "formula-model"
-# TABLE_MODEL: str = "ds4sd/docling-models"
-# TABLE_MODEL_PATH: str = "model_artifacts/tableformer/accurate"
+
+class InternalElement:
+    def __init__(self, item: NodeItem) -> None:
+        self.item: NodeItem = item
+        self.provenance_index: int = 0
+        self.children: list["InternalElement"] = []
+
+    def debug_info(self) -> str:
+        if isinstance(self.item, DocItem):
+            self.item.self_ref
+            return f"DocItem {self.item.self_ref} ({type(self.item)})"
+        if isinstance(self.item, GroupItem):
+            return f"GroupItem {self.item.self_ref} ({type(self.item)})"
+        return f"Unkown {type(self.item)}"
 
 
-class Region:
-    def __init__(
-        self, score: torch.Tensor, label: torch.Tensor, box: torch.Tensor, model: RTDetrForObjectDetection
-    ) -> None:
-        logger.debug(f"Raw data: label: {label}, score: {score}, box: {box}")
-        # Box is 4 floats:
-        # (x_min, y_min, x_max, y_max)
-        # (left, top, right, bottom)
-        # TOP-LEFT is (0,0)
-        self.box: list[float] = [round(float(i), 2) for i in box.tolist()]
-        # this model labels from 1
-        label_pointer: int = int(label.item()) + 1
-        self.label: str = model.config.id2label[label_pointer]
-        self.score: float = float(score.item())
-        logger.debug(f"Created data: label: {self.label}, score: {self.score * 100}%, box: {self.box}")
+class InternalPage:
+    def __init__(self) -> None:
+        self.number: int = 0
+        self.height: float = 0
+        self.width: float = 0
+        self.ordered_elements: list[InternalElement] = []
 
 
-def process_page(image_path: str, threshold: float) -> list[Region]:
-    """
-    Use Docling for layout recognition of document page image.
-
-    Args:
-        image_path (str): Path to file containing image.
-        threshold (float): Threshold under which results from AI are ignored.
-
-    Returns:
-        List of regions (BBoxes and types)
-    """
-    # Load the processor and model
-    processor: RTDetrImageProcessor = RTDetrImageProcessor.from_pretrained(LAYOUT_MODEL_PATH, local_files_only=True)
-    model: RTDetrForObjectDetection = RTDetrForObjectDetection.from_pretrained(LAYOUT_MODEL_PATH, local_files_only=True)
-
-    # Load image data
-    image: Image.Image = Image.open(image_path)
-    if image.mode != "RGB":
-        image = image.convert(mode="RGB")
-
-    # Prepare inputs
-    inputs: BatchFeature = processor(images=image, return_tensors="pt")
-
-    # Generate layout
-    with torch.no_grad():
-        outputs: Any = model(**inputs)
-
-    # Decode layout
-    target_sizes: torch.Tensor = torch.tensor([image.size[::-1]])
-    results: list[dict] = processor.post_process_object_detection(
-        outputs,
-        target_sizes=target_sizes,  # type: ignore[arg-type]
-        threshold=threshold,
-    )
-    # Convert layout
-    res: list[Region] = []
-
-    for result in results:
-        for score, label_id, box in zip(result["scores"], result["labels"], result["boxes"]):
-            res.append(Region(score, label_id, box, model))
-
-    # Return layout
-    return res
+class InternalDocument:
+    def __init__(self) -> None:
+        self.pages: list[InternalPage] = []
+        self.docling_version: str = ""
 
 
-####### WIP #######
-# def process_table(image_path: str) -> dict:
-#     """
-#     Use Docling tableformer model to identify the structure of the table.
+def get_item(document: DoclingDocument, reference: str) -> Optional[NodeItem]:
+    for group in document.groups:
+        if group.self_ref == reference:
+            return group
+    for text in document.texts:
+        if text.self_ref == reference:
+            return text
+    for picture in document.pictures:
+        if picture.self_ref == reference:
+            return picture
+    for table in document.tables:
+        if table.self_ref == reference:
+            return table
+    for key_value_item in document.key_value_items:
+        if key_value_item.self_ref == reference:
+            return key_value_item
+    for form_item in document.form_items:
+        if form_item.self_ref == reference:
+            return form_item
+    return None
 
-#     Args:
-#         image_path (str): Path to file containing image.
 
-#     Returns:
-#         Latex representation of formula
-#     """
+def create_elements(document: DoclingDocument, item: NodeItem) -> list[InternalElement]:
+    internal_elements: list[InternalElement] = []
+
+    # Create element(s) according to provenances
+    if isinstance(item, DocItem):
+        provenances: list[ProvenanceItem] = item.prov
+        for index in range(len(provenances)):
+            internal_element: InternalElement = InternalElement(item)
+            internal_element.provenance_index = index
+            internal_elements.append(internal_element)
+    elif isinstance(item, GroupItem):
+        internal_element = InternalElement(item)
+        internal_element.provenance_index = -1
+        internal_elements.append(internal_element)
+    else:
+        print("Unsupported descendant NodeItem type")
+
+    # Recursively create children
+    if len(internal_elements) > 0:
+        for child_ref in item.children:
+            child_item: Optional[NodeItem] = get_item(document, child_ref.cref)
+            if child_item is None:
+                continue
+            child_elements: list[InternalElement] = create_elements(document, child_item)
+            internal_elements[0].children.extend(child_elements)
+
+    return internal_elements
 
 
-# def process_formula(image_path: str) -> str:
-#     """
-#     Use Docling formula model to craft latex representation of formula from image.
-#     Image of formula should be at 120 DPI.
+def get_start_page_number(elements: list[InternalElement]) -> int:
+    # Find page number in DocItems
+    for element in elements:
+        if isinstance(element.item, DocItem):
+            return element.item.prov[0].page_no
+    # Find page number in GroupItems
+    for element in elements:
+        if isinstance(element.item, GroupItem):
+            number: int = get_start_page_number(element.children)
+            if number > 0:
+                return number
+    # Not found
+    return -1
 
-#     Args:
-#         image_path (str): Path to file containing image.
 
-#     Returns:
-#         Latex representation of formula
-#     """
-#     # Load model
-#     processor: AutoProcessor = AutoProcessor.from_pretrained(FORMULA_MODEL, use_fast=False)
-#     model: AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained(FORMULA_MODEL)
+def process_pdf(path: Path) -> Optional[InternalDocument]:
+    try:
+        converter: DocumentConverter = DocumentConverter()
+        result: ConversionResult = converter.convert(path)
+    except Exception as e:
+        red: str = "\033[31m"
+        reset: str = "\033[0m"
+        print(f"{red}Error during docling conversion:\n{e}{reset}")
+        traceback.print_stack()
+        return None
+    document: DoclingDocument = result.document
+    docling_json_path: Path = Path(__file__).parent.parent.joinpath(f"outputs/{path.stem}_output.json")
+    with open(docling_json_path, "w") as f:
+        json.dump(document.export_to_dict(), f, indent=4)
+    internal_document: InternalDocument = InternalDocument()
+    internal_document.docling_version = document.version
 
-#     # Load image data
-#     image: Image.Image = Image.open(image_path)
-#     if image.mode != "RGB":
-#         image = image.convert(mode="RGB")
+    for page in document.pages.values():
+        internal_page: InternalPage = InternalPage()
+        internal_page.number = page.page_no
+        internal_page.height = page.size.height
+        internal_page.width = page.size.width
+        internal_document.pages.append(internal_page)
 
-#     # Preprocess
-#     inputs: Any = processor(images=image, return_tensors="pt")
+    for reference in document.body.children:
+        # Get the item for the reference
+        item: Optional[NodeItem] = get_item(document, reference.cref)
+        if item is None:
+            continue
 
-#     # Inference
-#     with torch.no_grad():
-#         generated_ids: Any = model.generate(
-#             inputs["pixel_values"],
-#             max_new_tokens=1024,
-#             do_sample=False,  # could use sampling if needed
-#         )
+        # Get first page that element appears in
+        elements: list[InternalElement] = create_elements(document, item)
+        page_number: int = get_start_page_number(elements)
+        page_index: int = page_number - 1
 
-#     output: str = processor.decode(generated_ids[0], skip_special_tokens=True)
-#     return output
+        if 0 <= page_index < len(internal_document.pages):
+            internal_document.pages[page_index].ordered_elements.extend(elements)
+
+    return internal_document
