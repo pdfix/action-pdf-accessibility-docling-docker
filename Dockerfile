@@ -6,6 +6,11 @@ RUN apt-get update && \
     apt-get install -y \
     python3-pip \
     python3-venv \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,15 +32,13 @@ COPY src/ /usr/docling/src/
 
 # # no longer run inside container as layer gets too big
 # # Copy script to download models into container and run it
-# COPY download_models.py /usr/docling/
-# RUN venv/bin/python3 download_models.py
+COPY download_models.py /usr/docling/
+COPY example example
+RUN venv/bin/python3 download_models.py
+RUN rm -rf example
 
-# # Copy models data that we moved from original snapshot location
-# COPY model/ /usr/docling/model
-
-
-# # Set Hugging Face environment variable to avoid online fetch
-# ENV TRANSFORMERS_OFFLINE=1
+# Copy models data that we moved from original snapshot location
+# COPY rapidocr_models/ /usr/docling/venv/lib/python3.12/site-packages/rapidocr/models/
 
 
 # Add data folder into image

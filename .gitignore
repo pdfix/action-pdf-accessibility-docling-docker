@@ -27,5 +27,4 @@ venv.bak/
 .test
 
 # Directories for model downloaded
-model
-models
+rapidocr_models

@@ -61,8 +61,10 @@ class AutotagUsingDoclingLayoutRecognition:
         Automatically tags a PDF document.
         """
         document: Optional[InternalDocument] = process_pdf(Path(self.input_path_str))
+
         if document is None:
             return
+
         creator: TemplateJsonCreator = TemplateJsonCreator()
         template_json_dict: dict = creator.process_document(document)
 
@@ -71,6 +73,7 @@ class AutotagUsingDoclingLayoutRecognition:
         output_directory.mkdir()
         id: str = Path(self.input_path_str).stem
         template_path: Path = output_directory.joinpath(f"{id}-template_json.json")
+
         with open(template_path, "w") as file:
             file.write(json.dumps(template_json_dict, indent=2))
 

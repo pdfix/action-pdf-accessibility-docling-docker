@@ -55,7 +55,7 @@ else
 fi
 
 info "Test #03: Run autotag PDF"
-docker run --rm $PLATFORM -v $(pwd):/data -w /data $DOCKER_IMAGE tag -i example/AutoTag_Sample.pdf -o $TEMPORARY_DIRECTORY/passed.pdf > /dev/null
+docker run --rm $PLATFORM -v $(pwd):/data -w /data $DOCKER_IMAGE tag -i example/AutoTag_Sample.pdf -o $TEMPORARY_DIRECTORY/passed.pdf
 if [ -f "$(pwd)/$TEMPORARY_DIRECTORY/passed.pdf" ]; then
     success "passed"
 else

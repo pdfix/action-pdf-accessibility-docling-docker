@@ -43,9 +43,12 @@ class CreateTemplateJsonUsingDocling:
         Automatically creates template json.
         """
         document: Optional[InternalDocument] = process_pdf(Path(self.input_path_str))
+
         if document is None:
             return
+
         creator: TemplateJsonCreator = TemplateJsonCreator()
         json_dict: dict = creator.process_document(document)
+
         with open(self.output_path_str, "w") as f:
             json.dump(json_dict, f, indent=2)

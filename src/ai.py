@@ -125,7 +125,9 @@ def process_pdf(path: Path) -> Optional[InternalDocument]:
         traceback.print_stack()
         return None
     document: DoclingDocument = result.document
-    docling_json_path: Path = Path(__file__).parent.parent.joinpath(f"outputs/{path.stem}_output.json")
+    outputs_folder: Path = Path(__file__).parent.parent.joinpath("outputs")
+    outputs_folder.mkdir(exist_ok=True)
+    docling_json_path: Path = outputs_folder.joinpath(f"{path.stem}_output.json")
     with open(docling_json_path, "w") as f:
         json.dump(document.export_to_dict(), f, indent=4)
     internal_document: InternalDocument = InternalDocument()
