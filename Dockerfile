@@ -25,26 +25,26 @@ COPY config.json /usr/docling/
 COPY src/ /usr/docling/src/
 
 
-# no longer run inside container as layer gets too big
-# Copy script to download models into container and run it
+# # no longer run inside container as layer gets too big
+# # Copy script to download models into container and run it
 # COPY download_models.py /usr/docling/
 # RUN venv/bin/python3 download_models.py
 
-# Copy models data that we moved from original snapshot location
-COPY model/ /usr/docling/model
+# # Copy models data that we moved from original snapshot location
+# COPY model/ /usr/docling/model
 
 
-# Set Hugging Face environment variable to avoid online fetch
-ENV TRANSFORMERS_OFFLINE=1
+# # Set Hugging Face environment variable to avoid online fetch
+# ENV TRANSFORMERS_OFFLINE=1
 
 
 # Add data folder into image
 RUN mkdir -p /data
 
 
-# License
-COPY THIRD_PARTY_LICENSES.md /THIRD_PARTY_LICENSES.md
-LABEL license="https://pdfix.net/terms (PDFix SDK) and Apache License 2.0 (Docling layout by HuggingPanda)" 
+# # License
+# COPY THIRD_PARTY_LICENSES.md /THIRD_PARTY_LICENSES.md
+# LABEL license="https://pdfix.net/terms (PDFix SDK) and Apache License 2.0 (Docling layout by HuggingPanda)" 
 
 
 ENTRYPOINT ["/usr/docling/venv/bin/python3", "/usr/docling/src/main.py"]

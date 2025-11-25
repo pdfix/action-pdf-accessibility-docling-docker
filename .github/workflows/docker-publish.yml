@@ -53,47 +53,47 @@ jobs:
           images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}
           tags: ${{ env.tag }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
+      # - name: Set up Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.12'
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      # - name: Install Python dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install -r requirements.txt
 
-      - name: Download models data into ./model
-        run: |
-          mkdir -p ./models
-          python download_models.py
-          mkdir -p ./model
-          cp -L ./models/models--HuggingPanda--docling-layout/snapshots/*/* ./model
-          rm -rf ./models
+      # - name: Download models data into ./model
+      #   run: |
+      #     mkdir -p ./models
+      #     python download_models.py
+      #     mkdir -p ./model
+      #     cp -L ./models/models--HuggingPanda--docling-layout/snapshots/*/* ./model
+      #     rm -rf ./models
 
-      - name: Clean up github runners (that is not used for this build)
-        run: |
-          sudo rm -rf /usr/share/dotnet \
-              /opt/ghc \
-              /usr/local/lib/android \
-              /usr/lib/jvm
+      # - name: Clean up github runners (that is not used for this build)
+      #   run: |
+      #     sudo rm -rf /usr/share/dotnet \
+      #         /opt/ghc \
+      #         /usr/local/lib/android \
+      #         /usr/lib/jvm
 
       - name: Run tests
         run: chmod +x test.sh && ./test.sh
 
-      - name: Clean all that can be cleaned for Docker
-        run: |
-          docker system prune -a --volumes -f
-          docker buildx prune --all --force
-          docker builder prune --all --force
-          docker container prune -f
-          docker image prune -a -f
+      # - name: Clean all that can be cleaned for Docker
+      #   run: |
+      #     docker system prune -a --volumes -f
+      #     docker buildx prune --all --force
+      #     docker builder prune --all --force
+      #     docker container prune -f
+      #     docker image prune -a -f
 
-      - name: Clean up python dependencies and cache and python
-        run: |
-          pip uninstall -y -r requirements.txt || true
-          rm -rf ~/.cache/pip
-          sudo apt-get remove -y python3 || true
+      # - name: Clean up python dependencies and cache and python
+      #   run: |
+      #     pip uninstall -y -r requirements.txt || true
+      #     rm -rf ~/.cache/pip
+      #     sudo apt-get remove -y python3 || true
 
       - name: Build and push Docker image
         id: push
@@ -118,17 +118,17 @@ jobs:
         run: |
           curl -T config.json ftp.pdfix.net/update-service/v1/actions/${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}/config.json --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" --ftp-create-dirs
 
-      - name: Prepare directory for versions repository
-        run: mkdir -p pdfix-version-updates
+      # - name: Prepare directory for versions repository
+      #   run: mkdir -p pdfix-version-updates
 
-      - name: Checkout versions repository
-        uses: actions/checkout@v4
-        with:
-          repository: pdfix/pdfix-version-updates
-          path: pdfix-version-updates
-          token: ${{ secrets.PAT_VERSIONS }}
-          ref: main
-          fetch-depth: 0
+      # - name: Checkout versions repository
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: pdfix/pdfix-version-updates
+      #     path: pdfix-version-updates
+      #     token: ${{ secrets.PAT_VERSIONS }}
+      #     ref: main
+      #     fetch-depth: 0
 
-      - name: Update versions repository with new version
-        run: chmod +x update_versions_repository.sh && ./update_versions_repository.sh ${{ env.DOCKER_HUB_NAMESPACE }} ${{ env.DOCKER_HUB_REPOSITORY }} ${{ env.tag }}
+      # - name: Update versions repository with new version
+      #   run: chmod +x update_versions_repository.sh && ./update_versions_repository.sh ${{ env.DOCKER_HUB_NAMESPACE }} ${{ env.DOCKER_HUB_REPOSITORY }} ${{ env.tag }}
