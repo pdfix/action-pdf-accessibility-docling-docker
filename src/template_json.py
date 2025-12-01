@@ -1,6 +1,7 @@
 import re
 from datetime import date
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 from docling_core.types.doc import (
     BoundingBox,
@@ -13,6 +14,7 @@ from docling_core.types.doc import (
     FormItem,
     FormulaItem,
     GroupItem,
+    GroupLabel,
     InlineGroup,
     KeyValueItem,
     ListGroup,
@@ -27,6 +29,7 @@ from docling_core.types.doc import (
     TextItem,
     TitleItem,
 )
+from pydantic import AnyUrl
 
 from ai import InternalDocument, InternalElement, InternalPage
 
@@ -125,57 +128,73 @@ class TemplateJsonCreator:
         page_h: float = page.height
 
         for element in page.ordered_elements:
-            result: dict = self._create_element(element, None, page_h)
+            result: list[dict] = self._create_elements(element, page_h)
 
-            results.append(result)
+            results.extend(result)
 
         return results
 
-    def _create_element(
-        self,
-        element: InternalElement,
-        parent_element: Optional[InternalElement],
-        page_height: float,
-    ) -> dict:
+    def _create_elements(self, element: InternalElement, page_height: float) -> list[dict]:
         """
-        Create element dict for json as pdfix template expects.
+        Create element dict for json as pdfix template expects. Some items can result in multiple dict.
 
         Args:
             element (InternalElement): Element to create dict for.
-            parent_element (Optional[InternalElement]): Parent element if any.
             page_height (float): Height of the page to convert bbox.
 
         Returns:
-            Element dict for json.
+            List of elements dict for json.
         """
+        results: list[dict] = []
         result: dict = {}
+        results.append(result)
 
         item: NodeItem = element.item
-        element_ref: str = self._get_element_ref(element, element.provenance_index)
+        element_ref: str = element.id()
         result["name"] = element_ref
-        if element.provenance_index > 0:
-            result["Continuous"] = self._get_element_ref(element, 0)
+        if element.continuous_element is not None:
+            result["Continuous"] = element.continuous_element.id()
         bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_height)
         if bbox_list is not None:
             result["bbox"] = bbox_list
         label: str = self._get_label(element)
         layer: str = self._get_content_layer(element)
         result["comment"] = f"{element_ref} Label: {label} Layer: {layer}"
-        if parent_element is not None:
-            result["parent"] = self._get_element_ref(parent_element, parent_element.provenance_index)
+        if element.parent is not None:
+            result["parent"] = element.parent.id()
 
         children: list = []
 
         for child in element.children:
-            child_result: dict = self._create_element(child, element, page_height)
-            children.append(child_result)
+            child_result: list[dict] = self._create_elements(child, page_height)
+            children.extend(child_result)
 
         if len(children) > 0:
-            result["element_template"] = {
-                "template": {
-                    "element_create": [{"elements": children, "statement": "$if"}],
-                },
-            }
+            if isinstance(item, TableItem):
+                for child_dict in children:
+                    # Caption and Footnotes under Table are put after Table
+                    results.append(child_dict)
+            else:
+                result["element_template"] = {
+                    "template": {
+                        "element_create": [{"elements": children, "statement": "$if"}],
+                    },
+                }
+
+        if isinstance(item, TextItem):
+            hyperlink: Optional[Union[AnyUrl, Path]] = item.hyperlink
+            if isinstance(hyperlink, AnyUrl):
+                result["comment"] = f"{result['comment']} Hyperlink: {hyperlink}"
+            elif isinstance(hyperlink, Path):
+                result["comment"] = f"{result['comment']} Hyperlink: {hyperlink}"
+
+        if isinstance(item, FloatingItem):
+            if len(item.footnotes) > 0:
+                footnotes: str = ", ".join([footnote.cref for footnote in item.footnotes])
+                result["comment"] = f"{result['comment']} Footnotes: {footnotes}"
+            if len(item.captions) > 0:
+                captions: str = ", ".join([caption.cref for caption in item.captions])
+                result["comment"] = f"{result['comment']} Captions: {captions}"
 
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
@@ -184,7 +203,7 @@ class TemplateJsonCreator:
             result["type"] = "pde_text"
         elif isinstance(item, SectionHeaderItem):
             level: int = item.level
-            result["comment"] = f"{result['comment']} {level}"
+            result["comment"] = result["comment"].replace(label, f"{label} {level}")
             result["heading"] = f"h{level}"
             result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
@@ -197,7 +216,7 @@ class TemplateJsonCreator:
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
             language: str = item.code_language
-            result["comment"] = f"{result['comment']} {language}"
+            result["comment"] = f"{result['comment']} Lang: {language}"
             result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
@@ -206,7 +225,6 @@ class TemplateJsonCreator:
             result["flag"] = "no_join|no_split"
             result["type"] = "pde_image"
         elif isinstance(item, TextItem):
-            result["comment"] = f"{result['comment']} {str(item.label)}"
             match item.label:
                 case DocItemLabel.CAPTION:
                     result["tag"] = "Caption"
@@ -258,15 +276,12 @@ class TemplateJsonCreator:
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
             cells: list = self._create_cells(table_data, page_height)
-            if "element_template" not in result:
-                result["element_template"] = {
-                    "template": {
-                        "element_create": [{"elements": cells, "statement": "$if"}],
-                    },
-                }
-            else:
-                existing_children: list = result["element_template"]["template"]["element_create"][0]["elements"]
-                existing_children.extend(cells)
+            # element_template does not exists as all children are put after table not under the table
+            result["element_template"] = {
+                "template": {
+                    "element_create": [{"elements": cells, "statement": "$if"}],
+                },
+            }
             result["row_num"] = table_data.num_rows
             result["col_num"] = table_data.num_cols
             result["flag"] = "no_join|no_split"
@@ -282,53 +297,34 @@ class TemplateJsonCreator:
         elif isinstance(item, ListGroup):
             result["flag"] = "no_join|no_split"
             result["type"] = "pde_list"
-            pass
         elif isinstance(item, InlineGroup):
             # Default - should not get here
             result["flag"] = "no_join|no_split"
-            result["text_flag"] = "no_new_line"
-            result["type"] = "pde_text"
+            result["type"] = "pde_container"
         elif isinstance(item, GroupItem):
-            # Default - should not get here
+            match item.label:
+                case GroupLabel.CHAPTER:
+                    result["tag"] = "Sect"
+                case GroupLabel.SECTION:
+                    result["tag"] = "Part"
+                case _:
+                    result["tag"] = "NonStruct"
             result["flag"] = "no_join|no_split"
-            result["text_flag"] = "no_new_line"
-            result["type"] = "pde_text"
+            result["type"] = "pde_container"
         elif isinstance(item, FloatingItem):
             # Default - should not get here
             result["flag"] = "no_join|no_split"
-            result["text_flag"] = "no_new_line"
-            result["type"] = "pde_text"
+            result["type"] = "pde_container"
         elif isinstance(item, DocItem):
             # Default - should not get here
             result["flag"] = "no_join|no_split"
-            result["text_flag"] = "no_new_line"
-            result["type"] = "pde_text"
+            result["type"] = "pde_container"
         elif isinstance(item, NodeItem):
             # Default - should not get here
             result["flag"] = "no_join|no_split"
-            result["text_flag"] = "no_new_line"
-            result["type"] = "pde_text"
+            result["type"] = "pde_container"
 
-        # TODO: if text element - add hyperlinks as "hyperlink"
-
-        return result
-
-    def _get_element_ref(self, element: InternalElement, provenance_index: int) -> str:
-        """
-        Get element reference for json as pdfix template expects.
-
-        Args:
-            element (InternalElement): Element to get reference for.
-            provenance_index (int): Provenance index of the element.
-
-        Returns:
-            Unique string reference for area in document.
-        """
-        id: str = element.item.self_ref.replace("#", "").replace("/", "")
-        if provenance_index >= 0:
-            return f"{id}_{provenance_index}"
-        # GroupItems do not have provenance
-        return id
+        return results
 
     def _get_template_bbox(self, element: InternalElement, page_height: float) -> Optional[list[str]]:
         """
@@ -410,6 +406,17 @@ class TemplateJsonCreator:
             Content layer as string for json purposes.
         """
         layer: ContentLayer = element.item.content_layer
+        match layer:
+            case ContentLayer.BACKGROUND:
+                return "BACKGROUND"
+            case ContentLayer.BODY:
+                return "BODY"
+            case ContentLayer.FURNITURE:
+                return "FURNITURE"
+            case ContentLayer.INVISIBLE:
+                return "INVISIBLE"
+            case ContentLayer.NOTES:
+                return "NOTES"
         return str(layer)
 
     def _create_cells(self, table: TableData, page_height: float) -> list:
@@ -488,17 +495,18 @@ class TemplateJsonCreator:
         Returns:
             List type as string for json purposes.
         """
-        marker: str = item.marker.strip().rstrip(").:")
+        marker: str = item.marker.strip()
+        stripped_marker: str = marker.lstrip("(").rstrip(").:")
         if item.enumerated:
-            if re.fullmatch(r"\d+", marker):
+            if re.fullmatch(r"\d+", stripped_marker):
                 return "Decimal"
-            if re.fullmatch(r"M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})", marker):
+            if re.fullmatch(r"M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})", stripped_marker):
                 return "UpperRoman"
-            if re.fullmatch(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", marker):
+            if re.fullmatch(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", stripped_marker):
                 return "LowerRoman"
-            if re.fullmatch(r"[A-Z]", marker):
+            if re.fullmatch(r"[A-Z]", stripped_marker):
                 return "UpperAlpha"
-            if re.fullmatch(r"[a-z]", marker):
+            if re.fullmatch(r"[a-z]", stripped_marker):
                 return "LowerAlpha"
             if len(marker) > 1:
                 return "Description"
@@ -506,12 +514,12 @@ class TemplateJsonCreator:
         else:
             if marker == "":
                 return "None"
-            if marker in ["•", "●", "◉", "◌", "◍", "◎", "○"]:
+            if marker in ["•", "●", "◉", "◌", "◍", "◎", "○", "·", "˚", "°", "∙"]:
                 return "Disc"
             if marker in ["▪", "▫", "■", "□", "▣", "▤", "▥", "▦", "▧", "▨", "▩"]:
                 return "Square"
             if len(marker) > 1:
                 return "Description"
-            if marker in ["•", "−", "‣", "⁃", "∙", "–"]:
+            if marker in ["−", "‣", "⁃", "–"]:
                 return "Unordered"
         return "None"

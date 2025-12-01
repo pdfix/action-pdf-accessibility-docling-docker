@@ -20,10 +20,19 @@ logger: logging.Logger = get_logger()
 
 
 class InternalElement:
-    def __init__(self, item: NodeItem) -> None:
+    def __init__(self, item: NodeItem, parent: Optional["InternalElement"]) -> None:
         self.item: NodeItem = item
-        self.provenance_index: int = 0
+        self.provenance_index: int = -1
         self.children: list["InternalElement"] = []
+        self.page_number: int = -1
+        self.parent: Optional["InternalElement"] = parent
+        self.continuous_element: Optional["InternalElement"] = None
+
+    def id(self) -> str:
+        node_id: str = self.item.self_ref.replace("#", "").replace("/", "")
+        page_id: str = str(self.page_number)
+        provenance_id: str = str(self.provenance_index) if self.provenance_index >= 0 else "x"
+        return f"{node_id}-{page_id}-{provenance_id}"
 
     def debug_info(self) -> str:
         if isinstance(self.item, DocItem):
@@ -70,48 +79,74 @@ def get_item(document: DoclingDocument, reference: str) -> Optional[NodeItem]:
     return None
 
 
-def create_elements(document: DoclingDocument, item: NodeItem) -> list[InternalElement]:
+def create_elements(
+    document: DoclingDocument, item: NodeItem, parent: Optional[InternalElement]
+) -> list[InternalElement]:
     internal_elements: list[InternalElement] = []
 
     # Create element(s) according to provenances
     if isinstance(item, DocItem):
         provenances: list[ProvenanceItem] = item.prov
         for index in range(len(provenances)):
-            internal_element: InternalElement = InternalElement(item)
+            internal_element: InternalElement = InternalElement(item, parent)
             internal_element.provenance_index = index
+            internal_element.page_number = provenances[index].page_no
+            if index > 0:
+                # Points to first element (first Provenance) for NodeItem
+                internal_element.continuous_element = internal_elements[0]
             internal_elements.append(internal_element)
+        # Keep internal_element pointing to first element
+        internal_element = internal_elements[0]
     elif isinstance(item, GroupItem):
-        internal_element = InternalElement(item)
+        internal_element = InternalElement(item, parent)
         internal_element.provenance_index = -1
         internal_elements.append(internal_element)
     else:
-        print("Unsupported descendant NodeItem type")
+        logger.error("Unsupported descendant NodeItem type")
+        return internal_elements
 
     # Recursively create children
-    if len(internal_elements) > 0:
+    children: list[InternalElement] = []
+
+    if len(item.children) > 0:
+        # Convert children
         for child_ref in item.children:
             child_item: Optional[NodeItem] = get_item(document, child_ref.cref)
             if child_item is None:
                 continue
-            child_elements: list[InternalElement] = create_elements(document, child_item)
-            internal_elements[0].children.extend(child_elements)
+            # More children are expected for GroupItem -> there will be just one internal_element
+            # For DocItem currently all provenances points to the same page and thus any children will also be from
+            # the same page
+            # With this we can safely assume that internal_element (always first create element for NodeItem) is parent
+            # for their page
+            child_elements: list[InternalElement] = create_elements(document, child_item, internal_element)
+            children.extend(child_elements)
+
+        # Sort children into page numbers
+        page_children: dict[int, list[InternalElement]] = {}
+        for child in children:
+            page_number: int = child.page_number
+            if page_number not in page_children:
+                page_children[page_number] = []
+            page_children[page_number].append(child)
+
+        # Create more elements if children are on more pages
+        first: bool = True
+        for page_number, child_list in page_children.items():
+            if first:
+                internal_element.page_number = page_number
+                internal_element.children.extend(child_list)
+                first = False
+            else:
+                new_element = InternalElement(item, parent)
+                new_element.provenance_index = internal_element.provenance_index
+                new_element.page_number = page_number
+                new_element.children.extend(child_list)
+                # Points to first element (usually GroupItem with first page number) for NodeItem
+                new_element.continuous_element = internal_element
+                internal_elements.append(new_element)
 
     return internal_elements
-
-
-def get_start_page_number(elements: list[InternalElement]) -> int:
-    # Find page number in DocItems
-    for element in elements:
-        if isinstance(element.item, DocItem):
-            return element.item.prov[0].page_no
-    # Find page number in GroupItems
-    for element in elements:
-        if isinstance(element.item, GroupItem):
-            number: int = get_start_page_number(element.children)
-            if number > 0:
-                return number
-    # Not found
-    return -1
 
 
 def process_pdf(path: Path) -> Optional[InternalDocument]:
@@ -119,9 +154,7 @@ def process_pdf(path: Path) -> Optional[InternalDocument]:
         converter: DocumentConverter = DocumentConverter()
         result: ConversionResult = converter.convert(path)
     except Exception as e:
-        red: str = "\033[31m"
-        reset: str = "\033[0m"
-        print(f"{red}Error during docling conversion:\n{e}{reset}")
+        logger.error(f"Error during docling conversion:\n{e}")
         traceback.print_stack()
         return None
     document: DoclingDocument = result.document
@@ -147,11 +180,13 @@ def process_pdf(path: Path) -> Optional[InternalDocument]:
             continue
 
         # Get first page that element appears in
-        elements: list[InternalElement] = create_elements(document, item)
-        page_number: int = get_start_page_number(elements)
-        page_index: int = page_number - 1
+        elements: list[InternalElement] = create_elements(document, item, None)
+        for element in elements:
+            page_index: int = element.page_number - 1
 
-        if 0 <= page_index < len(internal_document.pages):
-            internal_document.pages[page_index].ordered_elements.extend(elements)
+            if 0 <= page_index < len(internal_document.pages):
+                internal_document.pages[page_index].ordered_elements.append(element)
+            else:
+                logger.error(f"Cannot add element: {element.id()} to page_index: {page_index}")
 
     return internal_document
