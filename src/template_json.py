@@ -41,6 +41,15 @@ class TemplateJsonCreator:
 
     # Constants
     CONFIG_FILE = "config.json"
+    PAGE_MAP_SETTINGS: list = [
+        {
+            "graphic_table_detect": "0",
+            "statement": "$if",
+            "text_table_detect": "0",
+            "label_image_detect": "0",
+            "label_word_detect": "0",
+        }
+    ]
 
     def __init__(self) -> None:
         """
@@ -67,15 +76,6 @@ class TemplateJsonCreator:
             # we are creating first one always so it is always "1"
             "version": "1",
         }
-        page_map: list = [
-            {
-                "graphic_table_detect": "0",
-                "statement": "$if",
-                "text_table_detect": "0",
-                "label_image_detect": "0",
-                "label_word_detect": "0",
-            }
-        ]
 
         for page in document.pages:
             page_dict: dict = self.process_page(page)
@@ -85,7 +85,7 @@ class TemplateJsonCreator:
             "metadata": metadata,
             "template": {
                 "element_create": self.template_json_pages,
-                "pagemap": page_map,
+                "pagemap": self.PAGE_MAP_SETTINGS,
             },
         }
 
@@ -152,8 +152,9 @@ class TemplateJsonCreator:
         item: NodeItem = element.item
         element_ref: str = element.id()
         result["name"] = element_ref
+        flag_list: list[str] = []
         if element.continuous_element is not None:
-            result["Continuous"] = element.continuous_element.id()
+            flag_list.append("continuous")
         bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_height)
         if bbox_list is not None:
             result["bbox"] = bbox_list
@@ -178,6 +179,7 @@ class TemplateJsonCreator:
                 result["element_template"] = {
                     "template": {
                         "element_create": [{"elements": children, "statement": "$if"}],
+                        "pagemap": self.PAGE_MAP_SETTINGS,
                     },
                 }
 
@@ -196,82 +198,62 @@ class TemplateJsonCreator:
                 captions: str = ", ".join([caption.cref for caption in item.captions])
                 result["comment"] = f"{result['comment']} Captions: {captions}"
 
+        # For all
+        flag_list.append("no_join")
+        flag_list.append("no_split")
+
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, SectionHeaderItem):
             level: int = item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
             result["heading"] = f"h{level}"
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListItem):
             result["numbering"] = self._get_list_type(item)
             result["marker"] = item.marker
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
             language: str = item.code_language
             result["comment"] = f"{result['comment']} Lang: {language}"
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, FormulaItem):
             result["tag"] = "Formula"
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_image"
         elif isinstance(item, TextItem):
             match item.label:
                 case DocItemLabel.CAPTION:
                     result["tag"] = "Caption"
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
                 case DocItemLabel.CHECKBOX_SELECTED:
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    pass
                 case DocItemLabel.CHECKBOX_UNSELECTED:
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    pass
                 case DocItemLabel.FOOTNOTE:
                     result["tag"] = "Note"
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
                 case DocItemLabel.PAGE_FOOTER:
-                    result["flag"] = "footer|artifact|no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    flag_list.append("footer")
+                    flag_list.append("artifact")
                 case DocItemLabel.PAGE_HEADER:
-                    result["flag"] = "header|artifact|no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    flag_list.append("header")
+                    flag_list.append("artifact")
                 case DocItemLabel.PARAGRAPH:
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    pass
                 case DocItemLabel.REFERENCE:
-                    # TODO Try
                     result["tag"] = "Reference"
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
                 case DocItemLabel.TEXT:
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    pass
                 case DocItemLabel.EMPTY_VALUE:
-                    result["flag"] = "no_join|no_split"
-                    result["text_flag"] = "no_new_line"
-                    result["type"] = "pde_text"
+                    pass
+            result["text_flag"] = "no_new_line"
+            result["type"] = "pde_text"
         elif isinstance(item, PictureItem):
-            result["flag"] = "no_join|no_split"
+            flag_list.remove("no_join")
+            flag_list.remove("no_split")
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
@@ -280,26 +262,22 @@ class TemplateJsonCreator:
             result["element_template"] = {
                 "template": {
                     "element_create": [{"elements": cells, "statement": "$if"}],
+                    "pagemap": self.PAGE_MAP_SETTINGS,
                 },
             }
             result["row_num"] = table_data.num_rows
             result["col_num"] = table_data.num_cols
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_table"
         elif isinstance(item, KeyValueItem):
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, FormItem):
-            result["flag"] = "no_join|no_split"
             result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListGroup):
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_list"
         elif isinstance(item, InlineGroup):
             # Default - should not get here
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_container"
         elif isinstance(item, GroupItem):
             match item.label:
@@ -309,20 +287,19 @@ class TemplateJsonCreator:
                     result["tag"] = "Part"
                 case _:
                     result["tag"] = "NonStruct"
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_container"
         elif isinstance(item, FloatingItem):
             # Default - should not get here
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_container"
         elif isinstance(item, DocItem):
             # Default - should not get here
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_container"
         elif isinstance(item, NodeItem):
             # Default - should not get here
-            result["flag"] = "no_join|no_split"
             result["type"] = "pde_container"
+
+        # Create flag
+        result["flag"] = "|".join(flag_list)
 
         return results
 

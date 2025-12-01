@@ -30,9 +30,10 @@ class InternalElement:
 
     def id(self) -> str:
         node_id: str = self.item.self_ref.replace("#", "").replace("/", "")
-        page_id: str = str(self.page_number)
-        provenance_id: str = str(self.provenance_index) if self.provenance_index >= 0 else "x"
-        return f"{node_id}-{page_id}-{provenance_id}"
+        return node_id
+        # page_id: str = str(self.page_number)
+        # provenance_id: str = str(self.provenance_index) if self.provenance_index >= 0 else "x"
+        # return f"{node_id}-{page_id}-{provenance_id}"
 
     def debug_info(self) -> str:
         if isinstance(self.item, DocItem):
