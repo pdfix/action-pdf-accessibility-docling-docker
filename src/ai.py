@@ -4,8 +4,11 @@ import traceback
 from pathlib import Path
 from typing import Optional
 
+# from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+from docling.datamodel.base_models import InputFormat
 from docling.datamodel.document import ConversionResult
-from docling.document_converter import DocumentConverter
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import (
     DocItem,
     DoclingDocument,
@@ -20,7 +23,21 @@ logger: logging.Logger = get_logger()
 
 
 class InternalElement:
+    """
+    Class to represent one Structure inside PDF document.
+    Contains reference to parent and references to children so you can crawl both ways.
+    Contains information which BBOX inside Docling Data is for this element.
+    Contains also information if this is continuous structure and has reference to first structure.
+    """
+
     def __init__(self, item: NodeItem, parent: Optional["InternalElement"]) -> None:
+        """
+        Constructor.
+
+        Args:
+            item (NodeItem): Reference to Docling Data.
+            parent (Optional[InternalElement]): None or already created element.
+        """
         self.item: NodeItem = item
         self.provenance_index: int = -1
         self.children: list["InternalElement"] = []
@@ -29,6 +46,12 @@ class InternalElement:
         self.continuous_element: Optional["InternalElement"] = None
 
     def id(self) -> str:
+        """
+        Unique identificator through whole PDF document received from Docling data.
+
+        Returns:
+            Unique identifier as string.
+        """
         node_id: str = self.item.self_ref.replace("#", "").replace("/", "")
         return node_id
         # page_id: str = str(self.page_number)
@@ -36,6 +59,12 @@ class InternalElement:
         # return f"{node_id}-{page_id}-{provenance_id}"
 
     def debug_info(self) -> str:
+        """
+        Debug function to print information if NodeItem is DocItem or GroupItem as they differ.
+
+        Returns:
+            Printable string containing parent type, id, current type.
+        """
         if isinstance(self.item, DocItem):
             self.item.self_ref
             return f"DocItem {self.item.self_ref} ({type(self.item)})"
@@ -45,7 +74,14 @@ class InternalElement:
 
 
 class InternalPage:
+    """
+    Class to represent one page of PDF document with list of elements that are in order Docling provided.
+    """
+
     def __init__(self) -> None:
+        """
+        Constructor.
+        """
         self.number: int = 0
         self.height: float = 0
         self.width: float = 0
@@ -53,12 +89,26 @@ class InternalPage:
 
 
 class InternalDocument:
+    """
+    Class to represent whole PDF document with list of pages and used Docling version.
+    """
+
     def __init__(self) -> None:
         self.pages: list[InternalPage] = []
         self.docling_version: str = ""
 
 
 def get_item(document: DoclingDocument, reference: str) -> Optional[NodeItem]:
+    """
+    Retrieves NodeItem from DoclingDocument according to its Docling indentificator.
+
+    Args:
+        document (DoclingDocument): Processed document by Docling.
+        reference (str): Docling type of unique identifier.
+
+    Returns:
+        Found NodeItem or None.
+    """
     for group in document.groups:
         if group.self_ref == reference:
             return group
@@ -83,6 +133,19 @@ def get_item(document: DoclingDocument, reference: str) -> Optional[NodeItem]:
 def create_elements(
     document: DoclingDocument, item: NodeItem, parent: Optional[InternalElement]
 ) -> list[InternalElement]:
+    """
+    Creates element(s) from provided document and item. Some NodeItem can result in many elements.
+    Either NodeItem has multiple ProvenanceItems or children of NodeItem are on multiple pages.
+    Creates also children recursively.
+
+    Args:
+        document (DoclingDocument): Processed document by Docling.
+        item (NodeItem): Structure element that is processed according to its data.
+        parent (Optional[InternalElement]): Already created parent or None.
+
+    Returns:
+        List of created elements for item.
+    """
     internal_elements: list[InternalElement] = []
 
     # Create element(s) according to provenances
@@ -150,9 +213,38 @@ def create_elements(
     return internal_elements
 
 
-def process_pdf(path: Path) -> Optional[InternalDocument]:
+def process_pdf(path: Path, do_formula_recognition: bool, do_image_description: bool) -> Optional[InternalDocument]:
+    """
+    Processed PDF document. First docling runs to create docling structure. That this structure is used to create
+    internal representation of PDF document so each item is on correct page some items are split either between pages
+    or for multiple columns inside same page.
+
+    Args:
+        path (Path): Path to PDF document.
+        do_formula_recognition (bool): If formulas are post-processed by Docling to create LaTeX representation of them.
+        do_image_description (bool): If pictures are post-processed by Docling to create description for image.
+
+    Returns:
+        Internal representation of PDF document with Docling Data. Or None if some error happens.
+    """
     try:
-        converter: DocumentConverter = DocumentConverter()
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = True
+        pipeline_options.do_table_structure = True
+        pipeline_options.table_structure_options.do_cell_matching = True
+        # pipeline_options.ocr_options.lang = ["en"]
+        pipeline_options.do_formula_enrichment = do_formula_recognition
+        pipeline_options.do_picture_description = do_image_description
+        # GPU:
+        # pipeline_options.accelerator_options = AcceleratorOptions(
+        #     num_threads=4, device=AcceleratorDevice.AUTO
+        # )
+        # CPU only
+        # pass
+
+        converter: DocumentConverter = DocumentConverter(
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
+        )
         result: ConversionResult = converter.convert(path)
     except Exception as e:
         logger.error(f"Error during docling conversion:\n{e}")

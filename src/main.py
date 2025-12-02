@@ -3,7 +3,7 @@ import os
 import sys
 import threading
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from autotag import AutotagUsingDoclingLayoutRecognition
 from constants import CONFIG_FILE
@@ -13,13 +13,32 @@ from exceptions import (
     MESSAGE_ARG_GENERAL,
     ArgumentInputPdfOutputJsonException,
     ArgumentInputPdfOutputPdfException,
-    ArgumentZoomException,
     ExpectedException,
 )
 from image_update import DockerImageContainerUpdateChecker
 from logger import get_logger
 
 logger = get_logger()
+
+
+def str2bool(value: Any) -> bool:
+    """
+    Helper function to convert argument to boolean.
+
+    Args:
+        value (Any): The value to convert to boolean.
+
+    Returns:
+        Parsed argument as boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ("yes", "true", "t", "1"):
+        return True
+    elif value.lower() in ("no", "false", "f", "0"):
+        return False
+    else:
+        raise ValueError("Boolean value expected.")
 
 
 def set_arguments(
@@ -39,22 +58,22 @@ def set_arguments(
     """
     for name in names:
         match name:
+            case "do_formula_recognition":
+                parser.add_argument(
+                    "--do_formula_recognition", type=str2bool, default=False, help="Tries to describe Formula."
+                )
+            case "do_image_description":
+                parser.add_argument(
+                    "--do_image_description", type=str2bool, default=False, help="Tries to create alt text for Figures."
+                )
             case "input":
                 parser.add_argument("--input", "-i", type=str, required=True, help="The input PDF file.")
             case "key":
                 parser.add_argument("--key", type=str, default="", nargs="?", help="PDFix license key.")
-            case "threshold":
-                parser.add_argument(
-                    "--threshold", type=float, default=0.3, help="Sets value under which results from AI are ignored."
-                )
             case "name":
                 parser.add_argument("--name", type=str, default="", nargs="?", help="PDFix license name.")
             case "output":
                 parser.add_argument("--output", "-o", type=str, required=required_output, help=output_help)
-            case "zoom":
-                parser.add_argument(
-                    "--zoom", type=float, default=2.0, help="Zoom level for the PDF page rendering (default: 2.0)."
-                )
 
 
 def run_config_subcommand(args) -> None:
@@ -80,7 +99,9 @@ def get_pdfix_config(path: str) -> None:
 
 
 def run_autotag_subcommand(args) -> None:
-    autotagging_pdf(args.name, args.key, args.input, args.output, args.zoom, args.threshold)
+    autotagging_pdf(
+        args.name, args.key, args.input, args.output, args.do_formula_recognition, args.do_image_description
+    )
 
 
 def autotagging_pdf(
@@ -88,8 +109,8 @@ def autotagging_pdf(
     license_key: Optional[str],
     input_path: str,
     output_path: str,
-    zoom: float,
-    threshold: float,
+    do_formula_recognition: bool,
+    do_image_description: bool,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -99,15 +120,12 @@ def autotagging_pdf(
         license_key (Optional[str]): Key used in authorization in PDFix-SDK.
         input_path (str): Path to PDF document.
         output_path (str): Path to PDF document.
-        zoom (float): Zoom level for rendering the page.
-        threshold (float): Threshold under which results from AI are ignored.
+        do_formula_recognition (bool): Do also formula recognition.
+        do_image_description (bool): Do also image desrciption.
     """
-    if zoom < 1.0 or zoom > 10.0:
-        raise ArgumentZoomException()
-
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
-            license_name, license_key, input_path, output_path, zoom, threshold
+            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description
         )
         autotag.process_file()
     else:
@@ -115,7 +133,9 @@ def autotagging_pdf(
 
 
 def run_template_subcommand(args) -> None:
-    create_template_json(args.name, args.key, args.input, args.output, args.zoom, args.threshold)
+    create_template_json(
+        args.name, args.key, args.input, args.output, args.do_formula_recognition, args.do_image_description
+    )
 
 
 def create_template_json(
@@ -123,8 +143,8 @@ def create_template_json(
     license_key: Optional[str],
     input_path: str,
     output_path: str,
-    zoom: float,
-    threshold: float,
+    do_formula_recognition: bool,
+    do_image_description: bool,
 ) -> None:
     """
     Creating template json for PDF document using provided arguments
@@ -134,15 +154,12 @@ def create_template_json(
         license_key (Optional[str]): Key used in authorization in PDFix-SDK.
         input_path (str): Path to PDF document.
         output_path (str): Path to JSON file.
-        zoom (float): Zoom level for rendering the page.
-        threshold (float): Threshold under which results from AI are ignored.
+        do_formula_recognition (bool): Do also formula recognition.
+        do_image_description (bool): Do also image desrciption.
     """
-    if zoom < 1.0 or zoom > 10.0:
-        raise ArgumentZoomException()
-
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
         template_creator = CreateTemplateJsonUsingDocling(
-            license_name, license_key, input_path, output_path, zoom, threshold
+            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description
         )
         template_creator.process_file()
     else:

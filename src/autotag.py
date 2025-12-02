@@ -35,8 +35,8 @@ class AutotagUsingDoclingLayoutRecognition:
         license_key: Optional[str],
         input_path: str,
         output_path: str,
-        zoom: float,
-        threshold: float,
+        do_formula_recognition: bool,
+        do_image_description: bool,
     ) -> None:
         """
         Initialize class for tagging pdf.
@@ -46,21 +46,23 @@ class AutotagUsingDoclingLayoutRecognition:
             license_key (Optional[str]): Pdfix SDK license key.
             input_path (str): Path to PDF document.
             output_path (str): Path where tagged PDF should be saved.
-            zoom (float): Zoom level for rendering the page.
-            threshold (float): Threshold under which results from AI are ignored.
+            do_formula_recognition (bool): Do also formula recognition.
+            do_image_description (bool): Do also image desrciption.
         """
         self.license_name: Optional[str] = license_name
         self.license_key: Optional[str] = license_key
         self.input_path_str: str = input_path
         self.output_path_str: str = output_path
-        self.zoom: float = zoom
-        self.threshold: float = threshold
+        self.do_formula_recognition: bool = do_formula_recognition
+        self.do_image_description: bool = do_image_description
 
     def process_file(self) -> None:
         """
         Automatically tags a PDF document.
         """
-        document: Optional[InternalDocument] = process_pdf(Path(self.input_path_str))
+        document: Optional[InternalDocument] = process_pdf(
+            Path(self.input_path_str), self.do_formula_recognition, self.do_image_description
+        )
 
         if document is None:
             return

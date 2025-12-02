@@ -1,9 +1,8 @@
 from pdfixsdk import Pdfix
 
 EC_ARG_GENERAL = 10
-EC_ARG_ZOOM = 11
-EC_ARG_INPUT_PDF_OUTPUT_JSON = 12
-EC_ARG_INPUT_PDF_OUTPUT_PDF = 13
+EC_ARG_INPUT_PDF_OUTPUT_JSON = 11
+EC_ARG_INPUT_PDF_OUTPUT_PDF = 12
 
 EC_PDFIX_INITIALIZE = 20
 EC_PDFIX_ACTIVATION_FAILED = 21
@@ -15,7 +14,6 @@ EC_PDFIX_FAILED_TO_TAG = 26
 EC_PDFIX_FAILED_TO_CREATE_TEMPLATE = 27
 
 MESSAGE_ARG_GENERAL = "Failed to parse arguments. Please check the usage and try again."
-MESSAGE_ARG_ZOOM = "Zoom level must between 1.0 and 10.0."
 MESSAGE_ARG_INPUT_PDF_OUTPUT_JSON = "Input file must be PDF document and output file must be JSON."
 MESSAGE_ARG_INPUT_PDF_OUTPUT_PDF = "Input and output file must be PDF documents."
 
@@ -42,11 +40,6 @@ class ArgumentException(ExpectedException):
     def __init__(self, message: str = MESSAGE_ARG_GENERAL, error_code: int = EC_ARG_GENERAL) -> None:
         super().__init__(error_code)
         self._add_note(message)
-
-
-class ArgumentZoomException(ArgumentException):
-    def __init__(self) -> None:
-        super().__init__(MESSAGE_ARG_ZOOM, EC_ARG_ZOOM)
 
 
 class ArgumentInputPdfOutputJsonException(ArgumentException):

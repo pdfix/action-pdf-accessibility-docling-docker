@@ -8,6 +8,7 @@ from docling_core.types.doc import (
     CodeItem,
     ContentLayer,
     CoordOrigin,
+    DescriptionAnnotation,
     DocItem,
     DocItemLabel,
     FloatingItem,
@@ -32,6 +33,7 @@ from docling_core.types.doc import (
 from pydantic import AnyUrl
 
 from ai import InternalDocument, InternalElement, InternalPage
+from utils import convert_latex_to_mathml, convert_to_base64
 
 
 class TemplateJsonCreator:
@@ -62,7 +64,7 @@ class TemplateJsonCreator:
         Prepare PDFix SDK json template for whole document.
 
         Args:
-            document (InternalDocument): Docling data in hierarchy.
+            document (InternalDocument): Internal representatio of PDF document with Docling data.
 
         Returns:
             Template json for whole document
@@ -224,6 +226,10 @@ class TemplateJsonCreator:
             result["type"] = "pde_text"
         elif isinstance(item, FormulaItem):
             result["tag"] = "Formula"
+            if item.text:
+                # TODO Formula MathML
+                latex_formula: str = item.text
+                result["alt"] = convert_to_base64(convert_latex_to_mathml(latex_formula))
             result["type"] = "pde_image"
         elif isinstance(item, TextItem):
             match item.label:
@@ -254,6 +260,14 @@ class TemplateJsonCreator:
         elif isinstance(item, PictureItem):
             flag_list.remove("no_join")
             flag_list.remove("no_split")
+            if (
+                len(item.annotations) > 0
+                and isinstance(item.annotations[0], DescriptionAnnotation)
+                and item.annotations[0].text
+            ):
+                # TODO Figure alt text
+                alt_text: str = item.annotations[0].text
+                result["alt"] = alt_text
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
