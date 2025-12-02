@@ -60,11 +60,14 @@ def set_arguments(
         match name:
             case "do_formula_recognition":
                 parser.add_argument(
-                    "--do_formula_recognition", type=str2bool, default=False, help="Tries to describe Formula."
+                    "--do_formula_recognition",
+                    type=str2bool,
+                    default=False,
+                    help="Provides MathML reprezentation of Formula tag.",
                 )
             case "do_image_description":
                 parser.add_argument(
-                    "--do_image_description", type=str2bool, default=False, help="Tries to create alt text for Figures."
+                    "--do_image_description", type=str2bool, default=False, help="Provides alt text for Figure tag."
                 )
             case "input":
                 parser.add_argument("--input", "-i", type=str, required=True, help="The input PDF file.")
@@ -193,7 +196,7 @@ def main() -> None:
     )
     set_arguments(
         autotag_subparser,
-        ["name", "key", "input", "output", "zoom", "threshold"],
+        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description"],
         True,
         "The output PDF file.",
     )
@@ -206,7 +209,7 @@ def main() -> None:
     )
     set_arguments(
         template_subparser,
-        ["name", "key", "input", "output", "zoom", "threshold"],
+        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description"],
         True,
         "The output JSON file.",
     )
