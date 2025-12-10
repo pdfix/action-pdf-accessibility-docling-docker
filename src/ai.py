@@ -232,13 +232,38 @@ def process_pdf(path: Path, do_formula_recognition: bool, do_image_description: 
         pipeline_options.do_ocr = True
         pipeline_options.do_table_structure = True
         pipeline_options.table_structure_options.do_cell_matching = True
-        # pipeline_options.ocr_options.lang = ["en"]
+
+        # # Docling Parse with EasyOCR (CPU only) # not installed by default
+        # # from docling.datamodel.pipeline_options import EasyOcrOptions
+        # pipeline_options.ocr_options = EasyOcrOptions()
+        # pipeline_options.ocr_options.use_gpu = False  # <-- set this.
+        # # pipeline_options.ocr_options.lang = ["en"]
+
+        # # Docling Parse with Rapid OCR
+        # # from docling.datamodel.pipeline_options import RapidOcrOptions
+        # pipeline_options.ocr_options = RapidOcrOptions()
+
+        # # Docling Parse with Tesseract CLI # not installed by default
+        # # Ensure Tesseract CLI (or library) is installed and on PATH.
+        # # from docling.datamodel.pipeline_options import TesseractCliOcrOptions
+        # pipeline_options.ocr_options = TesseractCliOcrOptions()
+        # pipeline_options.ocr_options.force_full_page_ocr = True
+        # # Language packs must be installed; set TESSDATA_PREFIX if Tesseract cannot find language data. Using
+        # # lang=["auto"] requires traineddata that supports script/language detection on your system.
+        # pipeline_options.ocr_options.lang = ["auto"]
+
+        # # Docling Parse with ocrmac (macOS only) # default in Mac environment
+        # # from docling.datamodel.pipeline_options import OcrMacOptions
+        # pipeline_options.ocr_options = OcrMacOptions()
+
         pipeline_options.do_formula_enrichment = do_formula_recognition
         pipeline_options.do_picture_description = do_image_description
+
         # GPU:
         # pipeline_options.accelerator_options = AcceleratorOptions(
         #     num_threads=4, device=AcceleratorDevice.AUTO
         # )
+
         # CPU only
         # pass
 
