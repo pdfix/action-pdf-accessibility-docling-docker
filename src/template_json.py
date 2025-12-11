@@ -227,9 +227,11 @@ class TemplateJsonCreator:
         elif isinstance(item, FormulaItem):
             result["tag"] = "Formula"
             if item.text:
-                # TODO Formula MathML
+                # Formula MathML
                 latex_formula: str = item.text
-                result["alt"] = convert_to_base64(convert_latex_to_mathml(latex_formula))
+                result["alt"] = latex_formula
+                # base64 mathml
+                result["mathml"] = convert_to_base64(convert_latex_to_mathml(latex_formula))
             result["type"] = "pde_image"
         elif isinstance(item, TextItem):
             match item.label:
@@ -265,7 +267,7 @@ class TemplateJsonCreator:
                 and isinstance(item.annotations[0], DescriptionAnnotation)
                 and item.annotations[0].text
             ):
-                # TODO Figure alt text
+                # Figure alt text
                 alt_text: str = item.annotations[0].text
                 result["alt"] = alt_text
             result["type"] = "pde_image"
