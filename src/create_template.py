@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from ai import InternalDocument, process_pdf
+from ai import DoclingWrapper, InternalDocument
 from template_json import TemplateJsonCreator
 
 
@@ -42,9 +42,10 @@ class CreateTemplateJsonUsingDocling:
         """
         Automatically creates template json.
         """
-        document: Optional[InternalDocument] = process_pdf(
+        wrapper: DoclingWrapper = DoclingWrapper(
             Path(self.input_path_str), self.do_formula_recognition, self.do_image_description
         )
+        document: Optional[InternalDocument] = wrapper.process_pdf()
 
         if document is None:
             return

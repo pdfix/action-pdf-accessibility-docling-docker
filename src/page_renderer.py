@@ -1,5 +1,8 @@
+import logging
+from pathlib import Path
 from typing import BinaryIO, Optional
 
+from docling_core.types.doc import BoundingBox
 from pdfixsdk import (
     PdfImageParams,
     Pdfix,
@@ -15,6 +18,9 @@ from pdfixsdk import (
 from PIL import Image
 
 from exceptions import PdfixFailedToRenderException
+from logger import get_logger
+
+logger: logging.Logger = get_logger()
 
 
 def render_page(pdfix: Pdfix, pdf_page: PdfPage, page_view: PdfPageView, temp_file: BinaryIO) -> None:
@@ -74,21 +80,20 @@ def render_page(pdfix: Pdfix, pdf_page: PdfPage, page_view: PdfPageView, temp_fi
         page_image.Destroy()
 
 
-def crop_image(image_path: str, box: list[float], temp_file: BinaryIO) -> None:
+def crop_image(image_path: Path, bbox: BoundingBox, temp_file: BinaryIO) -> None:
     """
     Cut out part of image into new image. WIP (not tested).
 
     Args:
-        image_path (str): Path to existing image.
-        box (list[float]): List of left, top, right, bottom pixel values where top left is (0,0).
+        image_path (Path): Path to existing image.
+        bbox (BoundingBox): Bounding box of the area to crop.
         temp_file (BinaryIO): File to save cutted image to.
     """
     with Image.open(image_path) as image:
-        # Convert float coordinates to integers (Pillow needs integers)
-        left, top, right, bottom = [int(round(coordinate)) for coordinate in box]
+        area: tuple[float, float, float, float] = (bbox.l, bbox.t, bbox.r, bbox.b)
 
         # Crop the image
-        cropped: Image.Image = image.crop((left, top, right, bottom))
+        cropped: Image.Image = image.crop(area)
 
         # Save cropped image into temporary file
         cropped.save(temp_file.name, format="JPEG")

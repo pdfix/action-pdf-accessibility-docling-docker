@@ -13,7 +13,7 @@ from pdfixsdk import (
     kSaveFull,
 )
 
-from ai import InternalDocument, process_pdf
+from ai import DoclingWrapper, InternalDocument
 from exceptions import (
     PdfixFailedToOpenException,
     PdfixFailedToSaveException,
@@ -60,9 +60,10 @@ class AutotagUsingDoclingLayoutRecognition:
         """
         Automatically tags a PDF document.
         """
-        document: Optional[InternalDocument] = process_pdf(
+        wrapper: DoclingWrapper = DoclingWrapper(
             Path(self.input_path_str), self.do_formula_recognition, self.do_image_description
         )
+        document: Optional[InternalDocument] = wrapper.process_pdf()
 
         if document is None:
             return

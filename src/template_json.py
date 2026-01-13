@@ -273,7 +273,7 @@ class TemplateJsonCreator:
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
-            cells: list = self._create_cells(table_data, page_height)
+            cells: list = self._create_cells(table_data, page_height, element_ref)
             # element_template does not exists as all children are put after table not under the table
             result["element_template"] = {
                 "template": {
@@ -412,13 +412,14 @@ class TemplateJsonCreator:
                 return "NOTES"
         return str(layer)
 
-    def _create_cells(self, table: TableData, page_height: float) -> list:
+    def _create_cells(self, table: TableData, page_height: float, table_ref: str) -> list:
         """
         Create cell elements for table in json as pdfix template expects.
 
         Args:
             table (TableData): Table data from docling.
             page_height (float): Height of the page to convert bbox.
+            table_ref (str): ID of the table parent.
 
         Returns:
             List of cell elements as dicts for json.
@@ -430,6 +431,7 @@ class TemplateJsonCreator:
             for cell in row:
                 cell_row: int = cell.start_row_offset_idx + 1
                 cell_column: int = cell.start_col_offset_idx + 1
+                cell_id: str = f"{table_ref}_cell_{cell_row}_{cell_column}"
                 cell_scope: str = self._get_cell_scope(cell)
                 cell_dict: dict = {
                     "cell_column": str(cell_row),
@@ -439,6 +441,8 @@ class TemplateJsonCreator:
                     "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
                     "cell_scope": cell_scope,
                     "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
+                    "name": cell_id,
+                    "parent": table_ref,
                     "type": "pde_cell",
                 }
                 if cell.bbox:
@@ -516,3 +520,25 @@ class TemplateJsonCreator:
             if marker in ["−", "‣", "⁃", "–"]:
                 return "Unordered"
         return "None"
+
+        # Docling markers
+        # self._bullet_patterns = [
+        #     r"[\u2022\u2023\u25E6\u2043\u204C\u204D\u2219\u25AA\u25AB\u25CF\u25CB]",  # Various bullet symbols
+        #     r"[-*+•·‣⁃]",  # Common ASCII and Unicode bullets
+        #     r"[►▶▸‣➤➢]",  # Arrow-like bullets
+        #     r"[✓✔✗✘]",  # Checkmark bullets
+        # ]
+
+        # # Numbered markers (ordered lists)
+        # self._numbered_patterns = [
+        #     r"\d+\.",  # 1. 2. 3.
+        #     r"\d+\)",  # 1) 2) 3)
+        #     r"\(\d+\)",  # (1) (2) (3)
+        #     r"\[\d+\]",  # [1] [2] [3]
+        #     r"[ivxlcdm]+\.",  # i. ii. iii. (Roman numerals lowercase)
+        #     r"[IVXLCDM]+\.",  # I. II. III. (Roman numerals uppercase)
+        #     r"[a-z]\.",  # a. b. c.
+        #     r"[A-Z]\.",  # A. B. C.
+        #     r"[a-z]\)",  # a) b) c)
+        #     r"[A-Z]\)",  # A) B) C)
+        # ]
