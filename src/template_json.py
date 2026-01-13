@@ -493,12 +493,14 @@ class TemplateJsonCreator:
             List type as string for json purposes.
         """
         marker: str = item.marker.strip()
-        stripped_marker: str = marker.lstrip("(").rstrip(").:")
+        stripped_marker: str = marker.lstrip("([").rstrip(")].:")
         if item.enumerated:
             if re.fullmatch(r"\d+", stripped_marker):
                 return "Decimal"
+            # Docling for upper roman uses only "[IVXLCDM]+\." for original (not stripped) marker
             if re.fullmatch(r"M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})", stripped_marker):
                 return "UpperRoman"
+            # Docling for lower roman uses only "[ivxlcdm]+\." for original (not stripped) marker
             if re.fullmatch(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", stripped_marker):
                 return "LowerRoman"
             if re.fullmatch(r"[A-Z]", stripped_marker):
@@ -517,28 +519,11 @@ class TemplateJsonCreator:
                 return "Square"
             if len(marker) > 1:
                 return "Description"
+            # Docling for bullet symbols uses:
+            # r"[\u2022\u2023\u25E6\u2043\u204C\u204D\u2219\u25AA\u25AB\u25CF\u25CB]"  # Various bullet symbols
+            # r"[-*+•·‣⁃]",  # Common ASCII and Unicode bullets
+            # r"[►▶▸‣➤➢]",  # Arrow-like bullets
+            # r"[✓✔✗✘]",  # Checkmark bullets
             if marker in ["−", "‣", "⁃", "–"]:
                 return "Unordered"
         return "None"
-
-        # Docling markers
-        # self._bullet_patterns = [
-        #     r"[\u2022\u2023\u25E6\u2043\u204C\u204D\u2219\u25AA\u25AB\u25CF\u25CB]",  # Various bullet symbols
-        #     r"[-*+•·‣⁃]",  # Common ASCII and Unicode bullets
-        #     r"[►▶▸‣➤➢]",  # Arrow-like bullets
-        #     r"[✓✔✗✘]",  # Checkmark bullets
-        # ]
-
-        # # Numbered markers (ordered lists)
-        # self._numbered_patterns = [
-        #     r"\d+\.",  # 1. 2. 3.
-        #     r"\d+\)",  # 1) 2) 3)
-        #     r"\(\d+\)",  # (1) (2) (3)
-        #     r"\[\d+\]",  # [1] [2] [3]
-        #     r"[ivxlcdm]+\.",  # i. ii. iii. (Roman numerals lowercase)
-        #     r"[IVXLCDM]+\.",  # I. II. III. (Roman numerals uppercase)
-        #     r"[a-z]\.",  # a. b. c.
-        #     r"[A-Z]\.",  # A. B. C.
-        #     r"[a-z]\)",  # a) b) c)
-        #     r"[A-Z]\)",  # A) B) C)
-        # ]
