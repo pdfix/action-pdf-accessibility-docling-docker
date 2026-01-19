@@ -39,7 +39,13 @@ RUN rm -rf example
 
 # Copy models data that we moved from original snapshot location
 # COPY rapidocr_models/ /usr/docling/venv/lib/python3.12/site-packages/rapidocr/models/
-
+# COPY .cache/hub/models--docling-project--CodeFormulaV2 
+# COPY .cache/hub/models--docling-project--docling-layout-heron
+# COPY .cache/hub/models--docling-project--docling-models
+# COPY .cache/hub/models--HuggingFaceTB--SmolVLM-256M-Instruct
+# COPY .cache/hub/models--ibm-granite--granite-vision-3.1-2b-preview
+# COPY .cache/hub/models--ibm-granite--granite-vision-3.2-2b
+# COPY .cache/hub/models--ibm-granite--granite-vision-3.3-2b
 
 # Add data folder into image
 RUN mkdir -p /data

@@ -53,21 +53,26 @@ jobs:
           images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}
           tags: ${{ env.tag }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
+      # - name: Set up Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.12'
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      # - name: Install Python dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install -r requirements.txt
 
-      - name: Download models data
-        run: |
-          mkdir -p ./rapidocr_models
-          python download_models.py
-          cp venv/lib/python3.12/site-packages/rapidocr/models/* rapidocr_models/
+      # - name: Download models data
+      #   run: |
+      #     python download_models.py
+      #     cp .cache/hub/models--docling-project--CodeFormulaV2 
+      #     cp .cache/hub/models--docling-project--docling-layout-heron
+      #     cp .cache/hub/models--docling-project--docling-models
+      #     cp .cache/hub/models--HuggingFaceTB--SmolVLM-256M-Instruct
+      #     cp .cache/hub/models--ibm-granite--granite-vision-3.1-2b-preview
+      #     cp .cache/hub/models--ibm-granite--granite-vision-3.2-2b
+      #     cp .cache/hub/models--ibm-granite--granite-vision-3.3-2b
 
       - name: Clean up github runners (that is not used for this build)
         run: |
