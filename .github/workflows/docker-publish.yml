@@ -21,12 +21,12 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -53,39 +53,12 @@ jobs:
           images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.DOCKER_HUB_REPOSITORY }}
           tags: ${{ env.tag }}
 
-      # - name: Set up Python
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.12'
-
-      # - name: Install Python dependencies
-      #   run: |
-      #     python -m pip install --upgrade pip
-      #     pip install -r requirements.txt
-
-      # - name: Download models data
-      #   run: |
-      #     python download_models.py
-      #     cp .cache/hub/models--docling-project--CodeFormulaV2 
-      #     cp .cache/hub/models--docling-project--docling-layout-heron
-      #     cp .cache/hub/models--docling-project--docling-models
-      #     cp .cache/hub/models--HuggingFaceTB--SmolVLM-256M-Instruct
-      #     cp .cache/hub/models--ibm-granite--granite-vision-3.1-2b-preview
-      #     cp .cache/hub/models--ibm-granite--granite-vision-3.2-2b
-      #     cp .cache/hub/models--ibm-granite--granite-vision-3.3-2b
-
       - name: Clean up github runners (that is not used for this build)
         run: |
           sudo rm -rf /usr/share/dotnet \
               /opt/ghc \
               /usr/local/lib/android \
               /usr/lib/jvm
-
-      - name: Clean up python dependencies and cache and python
-        run: |
-          pip uninstall -y -r requirements.txt || true
-          rm -rf ~/.cache/pip
-          sudo apt-get remove -y python3 || true
 
       - name: Run tests
         run: chmod +x test.sh && ./test.sh
@@ -102,7 +75,7 @@ jobs:
         id: push
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           context: .
           file: ./Dockerfile
           push: true
