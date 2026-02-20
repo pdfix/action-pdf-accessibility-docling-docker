@@ -1,2 +1,4 @@
 CONFIG_FILE = "config.json"
-DOCKER_IMAGE = "pdfix/pdf-accessibility-docling"
+DOCKER_NAMESPACE = "pdfix"
+DOCKER_REPOSITORY = "pdf-accessibility-docling"
+DOCKER_IMAGE = f"{DOCKER_NAMESPACE}/{DOCKER_REPOSITORY}"
