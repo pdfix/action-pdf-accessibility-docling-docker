@@ -10,7 +10,7 @@
             "icon": "docling",
             "category": "Accessibility",
             "local": true,
-            "program": "docker run -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -66,7 +66,7 @@
             "category": "Accessibility",
             "subtype": "create_layout_template_pdf_to_json",
             "local": true,
-            "program": "docker run -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
             "args": [
                 {
                     "name": "input_pdf",
