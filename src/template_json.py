@@ -50,6 +50,9 @@ class TemplateJsonCreator:
             "text_table_detect": "0",
             "label_image_detect": "0",
             "label_word_detect": "0",
+            "initial_element_only": "1",
+            "artifact_untagged": "1",
+            "initial_elements_keep_empty": "0",
         }
     ]
 
@@ -166,6 +169,8 @@ class TemplateJsonCreator:
         if element.parent is not None:
             result["parent"] = element.parent.id()
 
+        # If any elment has language added in future add result["lang"] = "en" or other language code
+
         children: list = []
 
         for child in element.children:
@@ -191,6 +196,8 @@ class TemplateJsonCreator:
                 result["comment"] = f"{result['comment']} Hyperlink: {hyperlink}"
             elif isinstance(hyperlink, Path):
                 result["comment"] = f"{result['comment']} Hyperlink: {hyperlink}"
+            if item.text:
+                result["text"] = item.text
 
         if isinstance(item, FloatingItem):
             if len(item.footnotes) > 0:
@@ -201,28 +208,29 @@ class TemplateJsonCreator:
                 result["comment"] = f"{result['comment']} Captions: {captions}"
 
         # For all
-        flag_list.append("no_join")
-        flag_list.append("no_split")
+        # flag_list.append("no_join")
+        # flag_list.append("no_split")
 
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
-            result["text_flag"] = "no_new_line"
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, SectionHeaderItem):
             level: int = item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
-            result["heading"] = f"h{level}"
-            result["text_flag"] = "no_new_line"
+            result["heading"] = "f"  # Instead of f"h{level}" use generic to force PDFix SDK to run algorithm
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListItem):
             result["numbering"] = self._get_list_type(item)
-            result["marker"] = item.marker
-            result["text_flag"] = "no_new_line"
+            result["label_text"] = item.marker
+            result["label"] = "label"  # if we know nesting use "li_1", "li_2" etc. for different levels
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
             language: str = item.code_language
             result["comment"] = f"{result['comment']} Lang: {language}"
-            result["text_flag"] = "no_new_line"
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, FormulaItem):
             result["tag"] = "Formula"
@@ -257,11 +265,13 @@ class TemplateJsonCreator:
                     pass
                 case DocItemLabel.EMPTY_VALUE:
                     pass
-            result["text_flag"] = "no_new_line"
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, PictureItem):
-            flag_list.remove("no_join")
-            flag_list.remove("no_split")
+            if "no_join" in flag_list:
+                flag_list.remove("no_join")
+            if "no_split" in flag_list:
+                flag_list.remove("no_split")
             if (
                 len(item.annotations) > 0
                 and isinstance(item.annotations[0], DescriptionAnnotation)
@@ -285,10 +295,10 @@ class TemplateJsonCreator:
             result["col_num"] = table_data.num_cols
             result["type"] = "pde_table"
         elif isinstance(item, KeyValueItem):
-            result["text_flag"] = "no_new_line"
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, FormItem):
-            result["text_flag"] = "no_new_line"
+            # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListGroup):
             result["type"] = "pde_list"
@@ -315,7 +325,8 @@ class TemplateJsonCreator:
             result["type"] = "pde_container"
 
         # Create flag
-        result["flag"] = "|".join(flag_list)
+        if len(flag_list) > 0:
+            result["flag"] = "|".join(flag_list)
 
         return results
 
@@ -448,6 +459,8 @@ class TemplateJsonCreator:
                 if cell.bbox:
                     bbox: BoundingBox = self._get_bottom_left_bbox(cell.bbox, page_height)
                     cell_dict["bbox"] = self._convert_bbox_to_list_str(bbox)
+                if cell.text:
+                    cell_dict["text"] = cell.text
                 cells.append(cell_dict)
 
         return cells
