@@ -10,7 +10,7 @@
             "icon": "docling",
             "category": "Accessibility",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -27,20 +27,6 @@
                     "type": "file_path",
                     "ext": "pdf",
                     "value": ""
-                },
-                {
-                    "title": "Threshold",
-                    "name": "threshold",
-                    "desc": "Model threshold value for any detection. Number between 0 and 1. Default is 0.3.",
-                    "type": "float",
-                    "value": "0.3"
-                },
-                {
-                    "title": "Rendering Zoom Level",
-                    "name": "zoom",
-                    "desc": "Pages are provided as images that are rendered using this zoom level",
-                    "type": "float",
-                    "value": "2.0"
                 }
             ],
             "errors": {
@@ -66,7 +52,7 @@
             "category": "Accessibility",
             "subtype": "create_layout_template_pdf_to_json",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --threshold \"${threshold}\" --zoom \"${zoom}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -83,20 +69,6 @@
                     "type": "file_path",
                     "ext": "json",
                     "value": ""
-                },
-                {
-                    "title": "Threshold",
-                    "name": "threshold",
-                    "desc": "Model threshold value for any detection. Number between 0 and 1. Default is 0.3.",
-                    "type": "float",
-                    "value": "0.3"
-                },
-                {
-                    "title": "Rendering Zoom Level",
-                    "name": "zoom",
-                    "desc": "Pages are provided as images that are rendered using this zoom level",
-                    "type": "float",
-                    "value": "2.0"
                 }
             ],
             "errors": {
