@@ -171,13 +171,14 @@ class TemplateJsonCreator:
 
         # If any elment has language added in future add result["lang"] = "en" or other language code
 
-        children: list = []
+        children: list[dict] = []
 
         for child in element.children:
             child_result: list[dict] = self._create_elements(child, page_height)
             children.extend(child_result)
 
         if len(children) > 0:
+            # TODO for text under image bbox needs to be converted to full page
             if isinstance(item, TableItem):
                 for child_dict in children:
                     # Caption and Footnotes under Table are put after Table
@@ -189,6 +190,8 @@ class TemplateJsonCreator:
                         "pagemap": self.PAGE_MAP_SETTINGS,
                     },
                 }
+            # if bbox_list is None:
+            #     result["bbox"] = self._calculate_bbox_from_children(element.children, page_height)
 
         if isinstance(item, TextItem):
             hyperlink: Optional[Union[AnyUrl, Path]] = item.hyperlink
@@ -540,3 +543,41 @@ class TemplateJsonCreator:
             if marker in ["−", "‣", "⁃", "–"]:
                 return "Unordered"
         return "None"
+
+    def _calculate_bbox_from_children(self, children: list[InternalElement], page_height: float) -> list[str]:
+        """
+        Calculate bounding box that covers all children elements.
+
+        Args:
+            children (list[InternalElement]): List of child elements to calculate bbox for.
+            page_height (float): Height of the page to convert bbox.
+
+        Returns:
+            Bbox covering all children as list of strings for json purposes.
+        """
+        if len(children) == 0:
+            return ["0", "0", "0", "0"]
+
+        result: Optional[BoundingBox] = None
+
+        for child in children:
+            if isinstance(child.item, DocItem) and len(child.item.prov) > 0:
+                provenance: ProvenanceItem = child.item.prov[0]
+                bbox: BoundingBox = self._get_bottom_left_bbox(provenance.bbox, page_height)
+
+                if result is None:
+                    result = BoundingBox(l=bbox.l, b=bbox.b, r=bbox.r, t=bbox.t, coord_origin=CoordOrigin.BOTTOMLEFT)
+                else:
+                    if bbox.l < result.l:
+                        result.l = bbox.l
+                    if bbox.b < result.b:
+                        result.b = bbox.b
+                    if bbox.r > result.r:
+                        result.r = bbox.r
+                    if bbox.t > result.t:
+                        result.t = bbox.t
+
+        if result is None:
+            return ["0", "0", "0", "0"]
+
+        return self._convert_bbox_to_list_str(result)
