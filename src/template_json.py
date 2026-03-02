@@ -178,7 +178,6 @@ class TemplateJsonCreator:
             children.extend(child_result)
 
         if len(children) > 0:
-            # TODO for text under image bbox needs to be converted to full page
             if isinstance(item, TableItem):
                 for child_dict in children:
                     # Caption and Footnotes under Table are put after Table
