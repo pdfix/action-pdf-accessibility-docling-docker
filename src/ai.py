@@ -76,7 +76,7 @@ class DoclingWrapper:
             pipeline_options = PdfPipelineOptions()
             pipeline_options.do_ocr = True
             pipeline_options.do_table_structure = True
-            pipeline_options.table_structure_options.do_cell_matching = True
+            # pipeline_options.table_structure_options.do_cell_matching = True
 
             # # Docling Parse with EasyOCR (CPU only) # not installed by default
             # # from docling.datamodel.pipeline_options import EasyOcrOptions
@@ -159,13 +159,13 @@ class DoclingWrapper:
         # for page_image in self.cached_page_images.values():
         #     try:
         #         page_image.unlink()
-        #     except Exception as e:  # TODO own exception
+        #     except Exception as e:
         #         logger.warning(f"Cannot delete cached page image {page_image.as_posix()}: {e}")
 
         # for cell_image in self.cell_images:
         #     try:
         #         cell_image.unlink()
-        #     except Exception as e:  # TODO own exception
+        #     except Exception as e:
         #         logger.warning(f"Cannot delete cached cell image {cell_image.as_posix()}: {e}")
 
         return internal_document
@@ -297,7 +297,8 @@ class DoclingWrapper:
             # page_height: float = page.height
             new_elements: list[InternalElement] = []
             for element in page.ordered_elements:
-                # TODO For now do not post-process cells as there is no reliable model to get type and box
+                # After a lot of testing (running docling on cell, running VLM on cell) post-processing of table cells
+                # does not work currently (we are unable to detect images in cells or any other structure).
                 # if isinstance(element.item, TableItem):
                 #     table: TableItem = element.item
                 #     cell_elements: list[InternalElement] = self._post_process_table(table, page_height)
@@ -394,7 +395,7 @@ class DoclingWrapper:
     #     if self.pdfix is None:
     #         self.pdfix = GetPdfix()
     #         if self.pdfix is None:
-    #             raise PdfixInitializeException()  # TODO
+    #             raise PdfixInitializeException()
 
     #     if self.doc is None:
     #         string_path: str = self.path.as_posix()

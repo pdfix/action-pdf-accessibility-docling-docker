@@ -134,7 +134,6 @@ class CellProcessor:
         """
         result: list[InternalElement] = []
         for element in data.get("elements", []):
-            # TODO better parsing of model output data
             element_type: str = element.get("type", "text")
 
             # Calculate element coordinates
@@ -203,7 +202,7 @@ class CellProcessor:
                         children=[],
                         content_layer=ContentLayer.BODY,
                         meta=None,
-                        name="cell_group",  # TODO better name
+                        name="cell_group",
                         label=GroupLabel.LIST,
                     )
                 case "text":
@@ -440,7 +439,7 @@ Return ONLY valid JSON.
                         children=[],
                         content_layer=ContentLayer.BODY,
                         meta=None,
-                        name="cell_group",  # TODO better name
+                        name="cell_group",
                         label=GroupLabel.LIST,
                     )
                 case "text":
