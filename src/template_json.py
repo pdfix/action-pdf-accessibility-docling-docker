@@ -210,8 +210,9 @@ class TemplateJsonCreator:
                 result["comment"] = f"{result['comment']} Captions: {captions}"
 
         # For all
-        # flag_list.append("no_join")
-        # flag_list.append("no_split")
+        flag_list.append("no_join")
+        flag_list.append("no_split")
+        flag_list.append("no_expand")
 
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
