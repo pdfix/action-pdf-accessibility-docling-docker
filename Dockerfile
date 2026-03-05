@@ -25,11 +25,6 @@ COPY requirements.txt /usr/docling/
 RUN pip install --no-cache-dir -r requirements.txt && rm -rf /root/.cache/pip
 
 
-# Copy config.json and the source code
-COPY config.json /usr/docling/
-COPY src/ /usr/docling/src/
-
-
 # # no longer run inside container as layer gets too big
 # # Copy script to download models into container and run it
 COPY download_models.py /usr/docling/
@@ -46,6 +41,12 @@ RUN rm -rf example
 # COPY .cache/hub/models--ibm-granite--granite-vision-3.1-2b-preview
 # COPY .cache/hub/models--ibm-granite--granite-vision-3.2-2b
 # COPY .cache/hub/models--ibm-granite--granite-vision-3.3-2b
+
+
+# Copy config.json and the source code
+COPY config.json /usr/docling/
+COPY src/ /usr/docling/src/
+
 
 # Add data folder into image
 RUN mkdir -p /data

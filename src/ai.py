@@ -3,9 +3,10 @@ import logging
 import tempfile
 import traceback
 from pathlib import Path
-from typing import Optional  # BinaryIO, Optional, cast
+from typing import Optional  # BinaryIO, cast
 
 import pypdfium2 as pdfium
+import torch
 
 # from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
@@ -79,6 +80,12 @@ class DoclingWrapper:
         # self.pdfix: Optional[Pdfix] = None
         # self.doc: Optional[PdfDoc] = None
         # self.cell_images: list[Path] = []
+
+        # Disable warnings about NNPACK unsupported hardware when running in docker image
+        torch.backends.nnpack.set_flags(False)
+
+        # Disable RapidOCR logging
+        logging.getLogger("RapidOCR").disabled = True
 
     def process_pdf(self, per_page: bool) -> Optional[InternalDocument]:
         """
@@ -173,7 +180,7 @@ class DoclingWrapper:
             internal_page.height = page.size.height
             internal_page.width = page.size.width
             internal_document.pages.append(internal_page)
-        self.progress_bar.update(bar_step)
+            self.progress_bar.update(bar_step)
 
         for reference in document.body.children:
             # Get the item for the reference
