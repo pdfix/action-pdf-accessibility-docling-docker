@@ -1,4 +1,12 @@
-CONFIG_FILE = "config.json"
-DOCKER_NAMESPACE = "pdfix"
-DOCKER_REPOSITORY = "pdf-accessibility-docling"
-DOCKER_IMAGE = f"{DOCKER_NAMESPACE}/{DOCKER_REPOSITORY}"
+CONFIG_FILE: str = "config.json"
+DOCKER_NAMESPACE: str = "pdfix"
+DOCKER_REPOSITORY: str = "pdf-accessibility-docling"
+DOCKER_IMAGE: str = f"{DOCKER_NAMESPACE}/{DOCKER_REPOSITORY}"
+PROCESSING_CONVERTING: float = 0.1  # During processing, 3rd part
+PROCESSING_PROCESSING: float = 0.8  # During processing, 2nd part
+PROCESSING_RENDERING: float = 0.1  # During processing, 1st part
+PROGRESS_BAR_AUTOTAG_PART: int = 100  # 3rd step budget (for autotag) 1st step budget (for template)
+PROGRESS_BAR_PROCESSING_PART: int = 700  # 1st step budget
+PROGRESS_BAR_SAVING_PART: int = 10  # 4th step budget
+PROGRESS_BAR_TEMPLATE_PART: int = 190  # 2nd step budget
+PROGRESS_BAR_TOTAL: int = 1000  # Total budget

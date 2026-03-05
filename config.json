@@ -10,7 +10,7 @@
             "icon": "docling",
             "category": "Accessibility",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -27,6 +27,27 @@
                     "type": "file_path",
                     "ext": "pdf",
                     "value": ""
+                },
+                {
+                    "title": "Process Formulas",
+                    "name": "process_formula",
+                    "desc": "Return formulas representations in LaTeX and MathML formats",
+                    "type": "bool",
+                    "value": true
+                },
+                {
+                    "title": "Describe Images",
+                    "name": "describe_images",
+                    "desc": "Provide alternate text descriptions for images in the document",
+                    "type": "bool",
+                    "value": true
+                },
+                {
+                    "title": "Per Page Processing",
+                    "name": "per_page",
+                    "desc": "Instead of processing whole document at once in Docling, process it page by page",
+                    "type": "bool",
+                    "value": false
                 }
             ],
             "errors": {
@@ -52,7 +73,7 @@
             "category": "Accessibility",
             "subtype": "create_layout_template_pdf_to_json",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -69,6 +90,27 @@
                     "type": "file_path",
                     "ext": "json",
                     "value": ""
+                },
+                {
+                    "title": "Process Formulas",
+                    "name": "process_formula",
+                    "desc": "Return formulas representations in LaTeX and MathML formats",
+                    "type": "bool",
+                    "value": true
+                },
+                {
+                    "title": "Describe Images",
+                    "name": "describe_images",
+                    "desc": "Provide alternate text descriptions for images in the document",
+                    "type": "bool",
+                    "value": true
+                },
+                {
+                    "title": "Per Page Processing",
+                    "name": "per_page",
+                    "desc": "Instead of processing whole document at once in Docling, process it page by page",
+                    "type": "bool",
+                    "value": false
                 }
             ],
             "errors": {

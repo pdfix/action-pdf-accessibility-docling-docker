@@ -1,10 +1,11 @@
 import json
 import logging
-
-# import tempfile
+import tempfile
 import traceback
 from pathlib import Path
 from typing import Optional  # BinaryIO, Optional, cast
+
+import pypdfium2 as pdfium
 
 # from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
@@ -16,11 +17,15 @@ from docling_core.types.doc import (
     # CoordOrigin,
     DocItem,
     DoclingDocument,
+    FloatingItem,
     GroupItem,
     NodeItem,
+    PageItem,
     ProvenanceItem,
     # TableItem,
 )
+from PIL import Image
+from tqdm import tqdm
 
 # from pdfixsdk import (
 #     GetPdfix,
@@ -32,6 +37,7 @@ from docling_core.types.doc import (
 # )
 # from cell_processor import CellProcessor
 # from exceptions import PdfixFailedToOpenException, PdfixFailedToRenderException, PdfixInitializeException
+from constants import PROCESSING_CONVERTING, PROCESSING_PROCESSING, PROCESSING_RENDERING
 from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
 
@@ -45,7 +51,14 @@ class DoclingWrapper:
     Wrapper class for Docling processing.
     """
 
-    def __init__(self, path: Path, do_formula_recognition: bool, do_image_description: bool) -> None:
+    def __init__(
+        self,
+        path: Path,
+        do_formula_recognition: bool,
+        do_image_description: bool,
+        progress_bar: tqdm,
+        progress_units_total: int,
+    ) -> None:
         """
         Constructor.
 
@@ -53,27 +66,48 @@ class DoclingWrapper:
             path (Path): Path to PDF document.
             do_formula_recognition (bool): If formulas are post-processed by Docling to create LaTeX representations.
             do_image_description (bool): If pictures are post-processed by Docling to create image descriptions.
+            progress_bar (tqdm): Progress bar to update during processing.
+            progress_units_total (int): Total number of units for progress bar for processing.
         """
         self.path: Path = path
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
+        self.progress_bar: tqdm = progress_bar
+        self.progress_units_total: int = progress_units_total
         # self.cell_processor: CellProcessor = CellProcessor()
         # self.cached_page_images: dict[int, Path] = {}
         # self.pdfix: Optional[Pdfix] = None
         # self.doc: Optional[PdfDoc] = None
         # self.cell_images: list[Path] = []
 
-    def process_pdf(self) -> Optional[InternalDocument]:
+    def process_pdf(self, per_page: bool) -> Optional[InternalDocument]:
         """
         Processed PDF document. First docling runs to create docling structure. That this structure is used to create
         internal representation of PDF document so each item is on correct page some items are split either between
         pages or for multiple columns inside same page.
 
+        Args:
+            per_page (bool): If True, process PDF page by page. If False, use whole PDF document.
+
+        Returns:
+            Internal representation of PDF document with Docling Data. Or None if some error happens.
+        """
+        if per_page:
+            return self._process_pdf_page_by_page()
+        else:
+            return self._process_pdf_as_whole()
+
+    def _process_pdf_as_whole(self) -> Optional[InternalDocument]:
+        """
+        Processed PDF document as a whole. First docling runs to create docling structure. That this structure is used
+        to create internal representation of PDF document so each item is on correct page some items are split
+        either between pages or for multiple columns inside same page.
+
         Returns:
             Internal representation of PDF document with Docling Data. Or None if some error happens.
         """
         try:
-            pipeline_options = PdfPipelineOptions()
+            pipeline_options: PdfPipelineOptions = PdfPipelineOptions()
             pipeline_options.do_ocr = True
             pipeline_options.do_table_structure = True
             # pipeline_options.table_structure_options.do_cell_matching = True
@@ -116,11 +150,14 @@ class DoclingWrapper:
                 format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
             )
             result: ConversionResult = converter.convert(self.path)
+            self.progress_bar.update(self.progress_units_total * (PROCESSING_RENDERING + PROCESSING_PROCESSING))
         except Exception as e:
             logger.error(f"Error during docling conversion:\n{e}")
             traceback.print_stack()
             return None
         document: DoclingDocument = result.document
+        bar_budget: int = 1 + len(document.pages) + len(document.body.children)
+        bar_step: float = (self.progress_units_total * PROCESSING_CONVERTING) / bar_budget
         outputs_folder: Path = Path(__file__).parent.parent.joinpath("outputs")
         outputs_folder.mkdir(exist_ok=True)
         docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_output.json")
@@ -128,6 +165,7 @@ class DoclingWrapper:
             json.dump(document.export_to_dict(), f, indent=4)
         internal_document: InternalDocument = InternalDocument()
         internal_document.docling_version = document.version
+        self.progress_bar.update(bar_step)
 
         for page in document.pages.values():
             internal_page: InternalPage = InternalPage()
@@ -135,6 +173,7 @@ class DoclingWrapper:
             internal_page.height = page.size.height
             internal_page.width = page.size.width
             internal_document.pages.append(internal_page)
+        self.progress_bar.update(bar_step)
 
         for reference in document.body.children:
             # Get the item for the reference
@@ -151,6 +190,7 @@ class DoclingWrapper:
                     internal_document.pages[page_index].ordered_elements.append(element)
                 else:
                     logger.error(f"Cannot add element: {element.id()} to page_index: {page_index}")
+            self.progress_bar.update(bar_step)
 
         # # Post-process docling data to include table cell contents
         # internal_document = self._post_process_docling_data(internal_document)
@@ -167,6 +207,81 @@ class DoclingWrapper:
         #         cell_image.unlink()
         #     except Exception as e:
         #         logger.warning(f"Cannot delete cached cell image {cell_image.as_posix()}: {e}")
+
+        return internal_document
+
+    def _process_pdf_page_by_page(self) -> Optional[InternalDocument]:
+        # Create images
+        pdf: pdfium.PdfDocument = pdfium.PdfDocument(str(self.path))
+        pages_count: int = len(pdf)
+        rendering_step: float = (self.progress_units_total * PROCESSING_RENDERING) / pages_count
+        processing_step: float = (
+            self.progress_units_total * (PROCESSING_PROCESSING + PROCESSING_CONVERTING)
+        ) / pages_count
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_folder: Path = Path(temp_dir).resolve()
+            outputs_folder: Path = Path(temp_dir).joinpath("outputs")
+            outputs_folder.mkdir(exist_ok=True)
+
+            for page_index in range(pages_count):
+                page_number: int = page_index + 1
+                suffix: str = f"_page_{page_number}"
+                page: pdfium.PdfPage = pdf.get_page(page_index)
+                page_bitmap: pdfium.PdfBitmap = page.render(scale=2.0)
+                page_image: Image.Image = page_bitmap.to_pil()
+                image_filename: str = f"{self.path.stem}{suffix}.png"
+                image_path: Path = temp_folder.joinpath(image_filename)
+                page_image.save(image_path, format="PNG")
+                self.progress_bar.update(rendering_step)
+
+            # Run docling and connect data together
+            internal_document: InternalDocument = InternalDocument()
+
+            for page_index in range(pages_count):
+                page_number = page_index + 1
+                suffix = f"_page_{page_number}"
+                try:
+                    pipeline_options: PdfPipelineOptions = PdfPipelineOptions()
+                    pipeline_options.do_ocr = True
+                    pipeline_options.do_table_structure = True
+
+                    pipeline_options.do_formula_enrichment = self.do_formula_recognition
+                    pipeline_options.do_picture_description = self.do_image_description
+
+                    converter: DocumentConverter = DocumentConverter(
+                        format_options={InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options)}
+                    )
+                    image_path = temp_folder.joinpath(f"{self.path.stem}{suffix}.png")
+                    result: ConversionResult = converter.convert(image_path)
+                except Exception as e:
+                    logger.error(f"Error during docling conversion:\n{e}")
+                    traceback.print_stack()
+                    return None
+                document: DoclingDocument = result.document
+                internal_document.docling_version = document.version
+                json_path: Path = outputs_folder.joinpath(f"{self.path.stem}{suffix}_output.json")
+                with open(json_path, "w") as f:
+                    json.dump(document.export_to_dict(), f, indent=4)
+
+                page_item: PageItem = document.pages.popitem()[1]
+                internal_page: InternalPage = InternalPage()
+                internal_page.number = page_number
+                internal_page.height = page_item.size.height
+                internal_page.width = page_item.size.width
+                internal_document.pages.append(internal_page)
+
+                for reference in document.body.children:
+                    item: Optional[NodeItem] = self._get_item(document, reference.cref)
+                    if item is None:
+                        continue
+
+                    elements: list[InternalElement] = self._create_elements(document, item, None)
+                    for element in elements:
+                        self._set_page_to_element(element, page_number)
+
+                        internal_document.pages[page_index].ordered_elements.append(element)
+                self.progress_bar.update(processing_step)
 
         return internal_document
 
@@ -282,6 +397,31 @@ class DoclingWrapper:
             if form_item.self_ref == reference:
                 return form_item
         return None
+
+    def _set_page_to_element(self, element: InternalElement, page_number: int) -> None:
+        """
+        Set page number to element and all its children recursively.
+
+        Args:
+            element (InternalElement): Element to set page number to.
+            page_number (int): Page number to set.
+
+        Returns:
+            Updated InternalElement with page number set.
+        """
+        element.page_number = page_number
+
+        # Fix refs
+        suffix: str = f"_page_{page_number}"
+        element.item.self_ref = f"{element.item.self_ref}{suffix}"
+        if isinstance(element.item, FloatingItem):
+            for footnote in element.item.footnotes:
+                footnote.cref = f"{footnote.cref}{suffix}"
+            for caption in element.item.captions:
+                caption.cref = f"{caption.cref}{suffix}"
+
+        for child in element.children:
+            self._set_page_to_element(child, page_number)
 
     def _post_process_docling_data(self, internal_document: InternalDocument) -> InternalDocument:
         """

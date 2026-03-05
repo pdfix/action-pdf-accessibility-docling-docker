@@ -12,8 +12,16 @@ from pdfixsdk import (
     kDataFormatJson,
     kSaveFull,
 )
+from tqdm import tqdm
 
 from ai import DoclingWrapper, InternalDocument
+from constants import (
+    PROGRESS_BAR_AUTOTAG_PART,
+    PROGRESS_BAR_PROCESSING_PART,
+    PROGRESS_BAR_SAVING_PART,
+    PROGRESS_BAR_TEMPLATE_PART,
+    PROGRESS_BAR_TOTAL,
+)
 from exceptions import (
     PdfixFailedToOpenException,
     PdfixFailedToSaveException,
@@ -37,6 +45,7 @@ class AutotagUsingDoclingLayoutRecognition:
         output_path: str,
         do_formula_recognition: bool,
         do_image_description: bool,
+        per_page: bool,
     ) -> None:
         """
         Initialize class for tagging pdf.
@@ -48,6 +57,7 @@ class AutotagUsingDoclingLayoutRecognition:
             output_path (str): Path where tagged PDF should be saved.
             do_formula_recognition (bool): Do also formula recognition.
             do_image_description (bool): Do also image desrciption.
+            per_page (bool): Process PDF page by page.
         """
         self.license_name: Optional[str] = license_name
         self.license_key: Optional[str] = license_key
@@ -55,50 +65,81 @@ class AutotagUsingDoclingLayoutRecognition:
         self.output_path_str: str = output_path
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
+        self.per_page: bool = per_page
 
     def process_file(self) -> None:
         """
         Automatically tags a PDF document.
         """
-        wrapper: DoclingWrapper = DoclingWrapper(
-            Path(self.input_path_str), self.do_formula_recognition, self.do_image_description
-        )
-        document: Optional[InternalDocument] = wrapper.process_pdf()
+        with tqdm(total=PROGRESS_BAR_TOTAL) as progress_bar:
+            progress_bar.set_description("Processing PDF document with docling")
+            wrapper: DoclingWrapper = DoclingWrapper(
+                Path(self.input_path_str),
+                self.do_formula_recognition,
+                self.do_image_description,
+                progress_bar,
+                PROGRESS_BAR_PROCESSING_PART,
+            )
+            document: Optional[InternalDocument] = wrapper.process_pdf(self.per_page)
 
-        if document is None:
-            return
+            if document is None:
+                progress_bar.set_description("Done")
+                progress_bar.n = PROGRESS_BAR_TOTAL
+                progress_bar.refresh()
+                return
 
-        creator: TemplateJsonCreator = TemplateJsonCreator()
-        template_json_dict: dict = creator.process_document(document)
+            progress_bar.set_description("Creating layout template")
+            progress_bar.n = PROGRESS_BAR_PROCESSING_PART
+            progress_bar.refresh()
 
-        # Save template to file
-        output_directory: Path = Path(__file__).parent.parent.joinpath("output").resolve()
-        output_directory.mkdir()
-        id: str = Path(self.input_path_str).stem
-        template_path: Path = output_directory.joinpath(f"{id}-template_json.json")
+            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_BAR_TEMPLATE_PART)
+            template_json_dict: dict = creator.process_document(document)
 
-        with open(template_path, "w") as file:
-            file.write(json.dumps(template_json_dict, indent=2))
+            # Save template to file
+            output_directory: Path = Path(__file__).parent.parent.joinpath("output").resolve()
+            output_directory.mkdir()
+            id: str = Path(self.input_path_str).stem
+            template_path: Path = output_directory.joinpath(f"{id}-template_json.json")
 
-        # Initialize PDFix SDK
-        pdfix: Optional[Pdfix] = GetPdfix()
-        if pdfix is None:
-            raise PdfixInitializeException()
+            with open(template_path, "w") as file:
+                file.write(json.dumps(template_json_dict, indent=2))
 
-        # Try to authorize PDFix SDK
-        authorize_sdk(pdfix, self.license_name, self.license_key)
+            progress_bar.set_description("Autotagging")
+            progress_bar.n = PROGRESS_BAR_PROCESSING_PART + PROGRESS_BAR_TEMPLATE_PART
+            progress_bar.refresh()
 
-        # Open the document
-        doc: Optional[PdfDoc] = pdfix.OpenDoc(self.input_path_str, "")
-        if doc is None:
-            raise PdfixFailedToOpenException(pdfix, self.input_path_str)
+            # Initialize PDFix SDK
+            pdfix: Optional[Pdfix] = GetPdfix()
+            if pdfix is None:
+                raise PdfixInitializeException()
 
-        # Autotag document
-        self._autotag_using_template(doc, template_json_dict, pdfix)
+            # Try to authorize PDFix SDK
+            authorize_sdk(pdfix, self.license_name, self.license_key)
 
-        # Save the processed document
-        if not doc.Save(self.output_path_str, kSaveFull):
-            raise PdfixFailedToSaveException(pdfix, self.output_path_str)
+            # Open the document
+            doc: Optional[PdfDoc] = pdfix.OpenDoc(self.input_path_str, "")
+            if doc is None:
+                raise PdfixFailedToOpenException(pdfix, self.input_path_str)
+
+            # Autotag document
+            self._autotag_using_template(doc, template_json_dict, pdfix)
+
+            progress_bar.set_description("Saving to file")
+            progress_bar.n = PROGRESS_BAR_PROCESSING_PART + PROGRESS_BAR_TEMPLATE_PART + PROGRESS_BAR_AUTOTAG_PART
+            progress_bar.refresh()
+
+            # Save the processed document
+            if not doc.Save(self.output_path_str, kSaveFull):
+                raise PdfixFailedToSaveException(pdfix, self.output_path_str)
+
+            progress_bar.set_description("Done")
+            progress_bar.n = (
+                PROGRESS_BAR_PROCESSING_PART
+                + PROGRESS_BAR_TEMPLATE_PART
+                + PROGRESS_BAR_AUTOTAG_PART
+                + PROGRESS_BAR_SAVING_PART
+            )
+            progress_bar.refresh()
 
     def _autotag_using_template(self, doc: PdfDoc, template_json_dict: dict, pdfix: Pdfix) -> None:
         """

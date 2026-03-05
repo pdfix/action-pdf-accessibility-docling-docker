@@ -31,9 +31,11 @@ from docling_core.types.doc import (
     TitleItem,
 )
 from pydantic import AnyUrl
+from tqdm import tqdm
 
 from ai import InternalDocument, InternalElement, InternalPage
-from utils import convert_latex_to_mathml, convert_to_base64
+from constants import DOCKER_IMAGE
+from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
 
 
 class TemplateJsonCreator:
@@ -56,11 +58,17 @@ class TemplateJsonCreator:
         }
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, progress_bar: tqdm, total_progress_units: int) -> None:
         """
         Initializes pdfix sdk template json creation by preparing list for each page.
+
+        Args:
+            progress_bar (tqdm): Progress bar to update about processing.
+            total_progress_units (int): Total number of units for progress bar for processing.
         """
         self.template_json_pages: list = []
+        self.progress_bar: tqdm = progress_bar
+        self.total_progress_units: int = total_progress_units
 
     def process_document(self, document: InternalDocument) -> dict:
         """
@@ -73,18 +81,25 @@ class TemplateJsonCreator:
             Template json for whole document
         """
         created_date: str = date.today().strftime("%Y-%m-%d")
+        docker_image: str = f"{DOCKER_IMAGE}:{get_current_version()}"
         metadata: dict = {
             "author": "Generated using Docling Project AI",
             "created": created_date,
             "modified": created_date,
-            "notes": f"Created using Docling Project {document.docling_version}",
+            "notes": f"Created using Docling Project {document.docling_version} inside {docker_image}",
             # we are creating first one always so it is always "1"
             "version": "1",
         }
 
-        for page in document.pages:
-            page_dict: dict = self.process_page(page)
-            self.template_json_pages.append(page_dict)
+        if len(document.pages) == 0:
+            self.progress_bar.update(self.total_progress_units)
+        else:
+            step: float = self.total_progress_units / len(document.pages)
+
+            for page in document.pages:
+                page_dict: dict = self.process_page(page)
+                self.template_json_pages.append(page_dict)
+                self.progress_bar.update(step)
 
         return {
             "metadata": metadata,

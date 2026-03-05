@@ -77,6 +77,8 @@ def set_arguments(
                 parser.add_argument("--name", type=str, default="", nargs="?", help="PDFix license name.")
             case "output":
                 parser.add_argument("--output", "-o", type=str, required=required_output, help=output_help)
+            case "per_page":
+                parser.add_argument("--per_page", type=str2bool, default=False, help="Process PDF page by page.")
 
 
 def run_config_subcommand(args) -> None:
@@ -103,7 +105,13 @@ def get_pdfix_config(path: str) -> None:
 
 def run_autotag_subcommand(args) -> None:
     autotagging_pdf(
-        args.name, args.key, args.input, args.output, args.do_formula_recognition, args.do_image_description
+        args.name,
+        args.key,
+        args.input,
+        args.output,
+        args.do_formula_recognition,
+        args.do_image_description,
+        args.per_page,
     )
 
 
@@ -114,6 +122,7 @@ def autotagging_pdf(
     output_path: str,
     do_formula_recognition: bool,
     do_image_description: bool,
+    per_page: bool,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -128,7 +137,7 @@ def autotagging_pdf(
     """
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
-            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description
+            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description, per_page
         )
         autotag.process_file()
     else:
@@ -137,7 +146,13 @@ def autotagging_pdf(
 
 def run_template_subcommand(args) -> None:
     create_template_json(
-        args.name, args.key, args.input, args.output, args.do_formula_recognition, args.do_image_description
+        args.name,
+        args.key,
+        args.input,
+        args.output,
+        args.do_formula_recognition,
+        args.do_image_description,
+        args.per_page,
     )
 
 
@@ -148,6 +163,7 @@ def create_template_json(
     output_path: str,
     do_formula_recognition: bool,
     do_image_description: bool,
+    per_page: bool,
 ) -> None:
     """
     Creating template json for PDF document using provided arguments
@@ -162,7 +178,7 @@ def create_template_json(
     """
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
         template_creator = CreateTemplateJsonUsingDocling(
-            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description
+            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description, per_page
         )
         template_creator.process_file()
     else:
@@ -196,7 +212,7 @@ def main() -> None:
     )
     set_arguments(
         autotag_subparser,
-        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description"],
+        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description", "per_page"],
         True,
         "The output PDF file.",
     )
@@ -209,7 +225,7 @@ def main() -> None:
     )
     set_arguments(
         template_subparser,
-        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description"],
+        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description", "per_page"],
         True,
         "The output JSON file.",
     )
