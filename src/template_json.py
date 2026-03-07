@@ -242,7 +242,7 @@ class TemplateJsonCreator:
         elif isinstance(item, ListItem):
             result["numbering"] = self._get_list_type(item)
             result["label_text"] = item.marker
-            result["label"] = "label"  # if we know nesting use "li_1", "li_2" etc. for different levels
+            result["label_list"] = "label"  # if we know nesting use "li_1", "li_2" etc. for different levels
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
