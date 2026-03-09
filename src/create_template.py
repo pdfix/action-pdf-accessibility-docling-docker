@@ -6,11 +6,10 @@ from tqdm import tqdm
 
 from ai import DoclingWrapper, InternalDocument
 from constants import (
-    PROGRESS_BAR_AUTOTAG_PART,
-    PROGRESS_BAR_PROCESSING_PART,
-    PROGRESS_BAR_SAVING_PART,
-    PROGRESS_BAR_TEMPLATE_PART,
-    PROGRESS_BAR_TOTAL,
+    PROGRESS_FIRST_STEP,
+    PROGRESS_FOURTH_STEP,
+    PROGRESS_SECOND_STEP,
+    PROGRESS_THIRD_STEP,
 )
 from template_json import TemplateJsonCreator
 
@@ -54,38 +53,43 @@ class CreateTemplateJsonUsingDocling:
         """
         Automatically creates template json.
         """
-        with tqdm(total=PROGRESS_BAR_TOTAL) as progress_bar:
-            progress_bar.set_description("Processing PDF document with docling")
-            processing_units: int = PROGRESS_BAR_AUTOTAG_PART + PROGRESS_BAR_PROCESSING_PART
+        total_progress_count: int = (
+            PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP + PROGRESS_THIRD_STEP + PROGRESS_FOURTH_STEP
+        )
+        with tqdm(total=total_progress_count) as progress_bar:
+            progress_bar.set_description("Initializing")
+
             wrapper: DoclingWrapper = DoclingWrapper(
                 Path(self.input_path_str),
                 self.do_formula_recognition,
                 self.do_image_description,
                 progress_bar,
-                processing_units,
+                PROGRESS_SECOND_STEP,
             )
+
+            progress_bar.update(PROGRESS_FIRST_STEP)
+            text: str = "Processing pages" if self.per_page else "Processing document"
+            progress_bar.set_description(text)
+
             document: Optional[InternalDocument] = wrapper.process_pdf(self.per_page)
 
             if document is None:
-                progress_bar.set_description("Done")
-                progress_bar.n = PROGRESS_BAR_TOTAL
-                progress_bar.refresh()
                 return
 
-            progress_bar.set_description("Creating layout template")
-            progress_bar.n = processing_units
+            progress_bar.n = PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP
+            progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
-            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_BAR_TEMPLATE_PART)
+            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_THIRD_STEP)
             json_dict: dict = creator.process_document(document)
 
-            progress_bar.set_description("Saving to file")
-            progress_bar.n = processing_units + PROGRESS_BAR_TEMPLATE_PART
+            progress_bar.n = PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP + PROGRESS_THIRD_STEP
+            progress_bar.set_description("Saving template")
             progress_bar.refresh()
 
             with open(self.output_path_str, "w") as f:
                 json.dump(json_dict, f, indent=2)
 
+            progress_bar.n = total_progress_count
             progress_bar.set_description("Done")
-            progress_bar.n = processing_units + PROGRESS_BAR_TEMPLATE_PART + PROGRESS_BAR_SAVING_PART
             progress_bar.refresh()

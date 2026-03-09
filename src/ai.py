@@ -38,7 +38,7 @@ from tqdm import tqdm
 # )
 # from cell_processor import CellProcessor
 # from exceptions import PdfixFailedToOpenException, PdfixFailedToRenderException, PdfixInitializeException
-from constants import PROCESSING_CONVERTING, PROCESSING_PROCESSING, PROCESSING_RENDERING
+from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER
 from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
 
@@ -75,6 +75,7 @@ class DoclingWrapper:
         self.do_image_description: bool = do_image_description
         self.progress_bar: tqdm = progress_bar
         self.progress_units_total: int = progress_units_total
+
         # self.cell_processor: CellProcessor = CellProcessor()
         # self.cached_page_images: dict[int, Path] = {}
         # self.pdfix: Optional[Pdfix] = None
@@ -113,6 +114,10 @@ class DoclingWrapper:
         Returns:
             Internal representation of PDF document with Docling Data. Or None if some error happens.
         """
+        docling_step_units: float = self.progress_units_total * (PERCENT_RENDER + PERCENT_AI)
+        convert_step_units: float = self.progress_units_total * PERCENT_CONVERT
+
+        # Run docling
         try:
             pipeline_options: PdfPipelineOptions = PdfPipelineOptions()
             pipeline_options.do_ocr = True
@@ -129,19 +134,6 @@ class DoclingWrapper:
             # # from docling.datamodel.pipeline_options import RapidOcrOptions
             # pipeline_options.ocr_options = RapidOcrOptions()
 
-            # # Docling Parse with Tesseract CLI # not installed by default
-            # # Ensure Tesseract CLI (or library) is installed and on PATH.
-            # # from docling.datamodel.pipeline_options import TesseractCliOcrOptions
-            # pipeline_options.ocr_options = TesseractCliOcrOptions()
-            # pipeline_options.ocr_options.force_full_page_ocr = True
-            # # Language packs must be installed; set TESSDATA_PREFIX if Tesseract cannot find language data. Using
-            # # lang=["auto"] requires traineddata that supports script/language detection on your system.
-            # pipeline_options.ocr_options.lang = ["auto"]
-
-            # # Docling Parse with ocrmac (macOS only) # default in Mac environment
-            # # from docling.datamodel.pipeline_options import OcrMacOptions
-            # pipeline_options.ocr_options = OcrMacOptions()
-
             pipeline_options.do_formula_enrichment = self.do_formula_recognition
             pipeline_options.do_picture_description = self.do_image_description
 
@@ -157,21 +149,31 @@ class DoclingWrapper:
                 format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
             )
             result: ConversionResult = converter.convert(self.path)
-            self.progress_bar.update(self.progress_units_total * (PROCESSING_RENDERING + PROCESSING_PROCESSING))
+
+            self.progress_bar.update(docling_step_units)
         except Exception as e:
             logger.error(f"Error during docling conversion:\n{e}")
             traceback.print_stack()
             return None
+
+        # Get Docling internal result
         document: DoclingDocument = result.document
+
         bar_budget: int = 1 + len(document.pages) + len(document.body.children)
-        bar_step: float = (self.progress_units_total * PROCESSING_CONVERTING) / bar_budget
+        bar_step: float = convert_step_units / bar_budget
+
+        # Save docling result as json to file
         outputs_folder: Path = Path(__file__).parent.parent.joinpath("outputs")
         outputs_folder.mkdir(exist_ok=True)
         docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_output.json")
+
         with open(docling_json_path, "w") as f:
             json.dump(document.export_to_dict(), f, indent=4)
+
+        # Convert docling internal document into this project internal structure
         internal_document: InternalDocument = InternalDocument()
         internal_document.docling_version = document.version
+
         self.progress_bar.update(bar_step)
 
         for page in document.pages.values():
@@ -180,6 +182,7 @@ class DoclingWrapper:
             internal_page.height = page.size.height
             internal_page.width = page.size.width
             internal_document.pages.append(internal_page)
+
             self.progress_bar.update(bar_step)
 
         for reference in document.body.children:
@@ -197,6 +200,7 @@ class DoclingWrapper:
                     internal_document.pages[page_index].ordered_elements.append(element)
                 else:
                     logger.error(f"Cannot add element: {element.id()} to page_index: {page_index}")
+
             self.progress_bar.update(bar_step)
 
         # # Post-process docling data to include table cell contents
@@ -218,36 +222,44 @@ class DoclingWrapper:
         return internal_document
 
     def _process_pdf_page_by_page(self) -> Optional[InternalDocument]:
-        # Create images
+
         pdf: pdfium.PdfDocument = pdfium.PdfDocument(str(self.path))
         pages_count: int = len(pdf)
-        rendering_step: float = (self.progress_units_total * PROCESSING_RENDERING) / pages_count
-        processing_step: float = (
-            self.progress_units_total * (PROCESSING_PROCESSING + PROCESSING_CONVERTING)
-        ) / pages_count
+
+        render_step_units: float = self.progress_units_total * PERCENT_RENDER
+        docling_step_units: float = self.progress_units_total * PERCENT_AI
+        convert_step_units: float = self.progress_units_total * PERCENT_CONVERT
+        rendering_step: float = render_step_units / pages_count
+        docling_step: float = docling_step_units / pages_count
+        convert_step: float = convert_step_units / pages_count
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_folder: Path = Path(temp_dir).resolve()
             outputs_folder: Path = Path(temp_dir).joinpath("outputs")
             outputs_folder.mkdir(exist_ok=True)
 
+            # Render PDF pages into images
             for page_index in range(pages_count):
                 page_number: int = page_index + 1
                 suffix: str = f"_page_{page_number}"
+                image_filename: str = f"{self.path.stem}{suffix}.png"
+                image_path: Path = temp_folder.joinpath(image_filename)
+
                 page: pdfium.PdfPage = pdf.get_page(page_index)
                 page_bitmap: pdfium.PdfBitmap = page.render(scale=2.0)
                 page_image: Image.Image = page_bitmap.to_pil()
-                image_filename: str = f"{self.path.stem}{suffix}.png"
-                image_path: Path = temp_folder.joinpath(image_filename)
                 page_image.save(image_path, format="PNG")
+
                 self.progress_bar.update(rendering_step)
 
-            # Run docling and connect data together
             internal_document: InternalDocument = InternalDocument()
 
+            # Run docling and convert data
             for page_index in range(pages_count):
                 page_number = page_index + 1
                 suffix = f"_page_{page_number}"
+                image_path = temp_folder.joinpath(f"{self.path.stem}{suffix}.png")
+
                 try:
                     pipeline_options: PdfPipelineOptions = PdfPipelineOptions()
                     pipeline_options.do_ocr = True
@@ -259,18 +271,26 @@ class DoclingWrapper:
                     converter: DocumentConverter = DocumentConverter(
                         format_options={InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options)}
                     )
-                    image_path = temp_folder.joinpath(f"{self.path.stem}{suffix}.png")
                     result: ConversionResult = converter.convert(image_path)
+
+                    self.progress_bar.update(docling_step)
                 except Exception as e:
                     logger.error(f"Error during docling conversion:\n{e}")
                     traceback.print_stack()
                     return None
+
+                # Get Docling internal result
                 document: DoclingDocument = result.document
+
                 internal_document.docling_version = document.version
+
+                # Save docling result as json to file
                 json_path: Path = outputs_folder.joinpath(f"{self.path.stem}{suffix}_output.json")
+
                 with open(json_path, "w") as f:
                     json.dump(document.export_to_dict(), f, indent=4)
 
+                # Convert docling internal document into this project internal structure
                 page_item: PageItem = document.pages.popitem()[1]
                 internal_page: InternalPage = InternalPage()
                 internal_page.number = page_number
@@ -285,10 +305,13 @@ class DoclingWrapper:
 
                     elements: list[InternalElement] = self._create_elements(document, item, None)
                     for element in elements:
+                        # Adjust data to reflect that each page is run separately
                         self._set_page_to_element(element, page_number)
 
+                        # Add element to proper page
                         internal_document.pages[page_index].ordered_elements.append(element)
-                self.progress_bar.update(processing_step)
+
+                self.progress_bar.update(convert_step)
 
         return internal_document
 
@@ -407,7 +430,8 @@ class DoclingWrapper:
 
     def _set_page_to_element(self, element: InternalElement, page_number: int) -> None:
         """
-        Set page number to element and all its children recursively.
+        Set page number to element and all its children recursively. Fixes reference to include page number in them to
+        make them unique.
 
         Args:
             element (InternalElement): Element to set page number to.
@@ -416,9 +440,10 @@ class DoclingWrapper:
         Returns:
             Updated InternalElement with page number set.
         """
+        # Set page number
         element.page_number = page_number
 
-        # Fix refs
+        # Fix references
         suffix: str = f"_page_{page_number}"
         element.item.self_ref = f"{element.item.self_ref}{suffix}"
         if isinstance(element.item, FloatingItem):
@@ -427,6 +452,7 @@ class DoclingWrapper:
             for caption in element.item.captions:
                 caption.cref = f"{caption.cref}{suffix}"
 
+        # Repeat for children
         for child in element.children:
             self._set_page_to_element(child, page_number)
 

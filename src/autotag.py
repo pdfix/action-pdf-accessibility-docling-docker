@@ -16,11 +16,10 @@ from tqdm import tqdm
 
 from ai import DoclingWrapper, InternalDocument
 from constants import (
-    PROGRESS_BAR_AUTOTAG_PART,
-    PROGRESS_BAR_PROCESSING_PART,
-    PROGRESS_BAR_SAVING_PART,
-    PROGRESS_BAR_TEMPLATE_PART,
-    PROGRESS_BAR_TOTAL,
+    PROGRESS_FIRST_STEP,
+    PROGRESS_FOURTH_STEP,
+    PROGRESS_SECOND_STEP,
+    PROGRESS_THIRD_STEP,
 )
 from exceptions import (
     PdfixFailedToOpenException,
@@ -71,28 +70,34 @@ class AutotagUsingDoclingLayoutRecognition:
         """
         Automatically tags a PDF document.
         """
-        with tqdm(total=PROGRESS_BAR_TOTAL) as progress_bar:
-            progress_bar.set_description("Processing PDF document with docling")
+        total_progress_count: int = (
+            PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP + PROGRESS_THIRD_STEP + PROGRESS_FOURTH_STEP
+        )
+        with tqdm(total=total_progress_count) as progress_bar:
+            progress_bar.set_description("Initializing")
+
             wrapper: DoclingWrapper = DoclingWrapper(
                 Path(self.input_path_str),
                 self.do_formula_recognition,
                 self.do_image_description,
                 progress_bar,
-                PROGRESS_BAR_PROCESSING_PART,
+                PROGRESS_SECOND_STEP,
             )
+
+            progress_bar.update(PROGRESS_FIRST_STEP)
+            text: str = "Processing pages" if self.per_page else "Processing document"
+            progress_bar.set_description(text)
+
             document: Optional[InternalDocument] = wrapper.process_pdf(self.per_page)
 
             if document is None:
-                progress_bar.set_description("Done")
-                progress_bar.n = PROGRESS_BAR_TOTAL
-                progress_bar.refresh()
                 return
 
-            progress_bar.set_description("Creating layout template")
-            progress_bar.n = PROGRESS_BAR_PROCESSING_PART
+            progress_bar.n = PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP
+            progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
-            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_BAR_TEMPLATE_PART)
+            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_THIRD_STEP)
             template_json_dict: dict = creator.process_document(document)
 
             # Save template to file
@@ -104,8 +109,8 @@ class AutotagUsingDoclingLayoutRecognition:
             with open(template_path, "w") as file:
                 file.write(json.dumps(template_json_dict, indent=2))
 
+            progress_bar.n = PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP + PROGRESS_THIRD_STEP
             progress_bar.set_description("Autotagging")
-            progress_bar.n = PROGRESS_BAR_PROCESSING_PART + PROGRESS_BAR_TEMPLATE_PART
             progress_bar.refresh()
 
             # Initialize PDFix SDK
@@ -124,21 +129,12 @@ class AutotagUsingDoclingLayoutRecognition:
             # Autotag document
             self._autotag_using_template(doc, template_json_dict, pdfix)
 
-            progress_bar.set_description("Saving to file")
-            progress_bar.n = PROGRESS_BAR_PROCESSING_PART + PROGRESS_BAR_TEMPLATE_PART + PROGRESS_BAR_AUTOTAG_PART
-            progress_bar.refresh()
-
             # Save the processed document
             if not doc.Save(self.output_path_str, kSaveFull):
                 raise PdfixFailedToSaveException(pdfix, self.output_path_str)
 
+            progress_bar.n = total_progress_count
             progress_bar.set_description("Done")
-            progress_bar.n = (
-                PROGRESS_BAR_PROCESSING_PART
-                + PROGRESS_BAR_TEMPLATE_PART
-                + PROGRESS_BAR_AUTOTAG_PART
-                + PROGRESS_BAR_SAVING_PART
-            )
             progress_bar.refresh()
 
     def _autotag_using_template(self, doc: PdfDoc, template_json_dict: dict, pdfix: Pdfix) -> None:
