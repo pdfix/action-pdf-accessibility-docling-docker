@@ -148,13 +148,13 @@ class TemplateJsonCreator:
         page_h: float = page.height
 
         for element in page.ordered_elements:
-            result: list[dict] = self._create_elements(element, page_h)
+            result: list[dict] = self._create_elements(element, page_h, False)
 
             results.extend(result)
 
         return results
 
-    def _create_elements(self, element: InternalElement, page_height: float) -> list[dict]:
+    def _create_elements(self, element: InternalElement, page_height: float, include_parent_key: bool) -> list[dict]:
         """
         Create element dict for json as pdfix template expects. Some items can result in multiple dict.
 
@@ -181,19 +181,23 @@ class TemplateJsonCreator:
         label: str = self._get_label(element)
         layer: str = self._get_content_layer(element)
         result["comment"] = f"{element_ref} Label: {label} Layer: {layer}"
-        if element.parent is not None:
+        # Keep parent key only if child is not under it
+        if element.parent is not None and include_parent_key:
             result["parent"] = element.parent.id()
 
         # If any elment has language added in future add result["lang"] = "en" or other language code
 
         children: list[dict] = []
+        append_children_instead_of_including_them: bool = isinstance(item, TableItem)
 
         for child in element.children:
-            child_result: list[dict] = self._create_elements(child, page_height)
+            child_result: list[dict] = self._create_elements(
+                child, page_height, append_children_instead_of_including_them
+            )
             children.extend(child_result)
 
         if len(children) > 0:
-            if isinstance(item, TableItem):
+            if append_children_instead_of_including_them:
                 for child_dict in children:
                     # Caption and Footnotes under Table are put after Table
                     results.append(child_dict)
@@ -242,7 +246,7 @@ class TemplateJsonCreator:
         elif isinstance(item, ListItem):
             result["numbering"] = self._get_list_type(item)
             result["label_text"] = item.marker
-            result["label_list"] = "label"  # if we know nesting use "li_1", "li_2" etc. for different levels
+            result["label"] = "label_list"  # if we know nesting use "li_1", "li_2" etc. for different levels
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
