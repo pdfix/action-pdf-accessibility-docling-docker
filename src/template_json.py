@@ -6,7 +6,7 @@ from typing import Optional, Union
 from docling_core.types.doc import (
     BoundingBox,
     CodeItem,
-    ContentLayer,
+    # ContentLayer,
     CoordOrigin,
     DescriptionAnnotation,
     DocItem,
@@ -179,8 +179,8 @@ class TemplateJsonCreator:
         if bbox_list is not None:
             result["bbox"] = bbox_list
         label: str = self._get_label(element)
-        layer: str = self._get_content_layer(element)
-        result["comment"] = f"{element_ref} Label: {label} Layer: {layer}"
+        # layer: str = self._get_content_layer(element)
+        result["comment"] = f"{element_ref} {label}"
         # Keep parent key only if child is not under it
         if element.parent is not None and include_parent_key:
             result["parent"] = element.parent.id()
@@ -421,29 +421,29 @@ class TemplateJsonCreator:
             return str(item.label)
         return ""
 
-    def _get_content_layer(self, element: InternalElement) -> str:
-        """
-        Get content layer value for json as pdfix template expects.
+    # def _get_content_layer(self, element: InternalElement) -> str:
+    #     """
+    #     Get content layer value for json as pdfix template expects.
 
-        Args:
-            element (InternalElement): Element to get content layer for.
+    #     Args:
+    #         element (InternalElement): Element to get content layer for.
 
-        Returns:
-            Content layer as string for json purposes.
-        """
-        layer: ContentLayer = element.item.content_layer
-        match layer:
-            case ContentLayer.BACKGROUND:
-                return "BACKGROUND"
-            case ContentLayer.BODY:
-                return "BODY"
-            case ContentLayer.FURNITURE:
-                return "FURNITURE"
-            case ContentLayer.INVISIBLE:
-                return "INVISIBLE"
-            case ContentLayer.NOTES:
-                return "NOTES"
-        return str(layer)
+    #     Returns:
+    #         Content layer as string for json purposes.
+    #     """
+    #     layer: ContentLayer = element.item.content_layer
+    #     match layer:
+    #         case ContentLayer.BACKGROUND:
+    #             return "BACKGROUND"
+    #         case ContentLayer.BODY:
+    #             return "BODY"
+    #         case ContentLayer.FURNITURE:
+    #             return "FURNITURE"
+    #         case ContentLayer.INVISIBLE:
+    #             return "INVISIBLE"
+    #         case ContentLayer.NOTES:
+    #             return "NOTES"
+    #     return str(layer)
 
     def _create_cells(self, table: TableData, page_height: float, table_ref: str) -> list:
         """
