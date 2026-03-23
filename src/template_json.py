@@ -188,7 +188,8 @@ class TemplateJsonCreator:
         # If any elment has language added in future add result["lang"] = "en" or other language code
 
         children: list[dict] = []
-        append_children_instead_of_including_them: bool = isinstance(item, TableItem)
+        # For now put everything where Docling returns it
+        append_children_instead_of_including_them: bool = False  # isinstance(item, TableItem)
 
         for child in element.children:
             child_result: list[dict] = self._create_elements(
@@ -306,13 +307,16 @@ class TemplateJsonCreator:
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
             cells: list = self._create_cells(table_data, page_height, element_ref)
-            # element_template does not exists as all children are put after table not under the table
-            result["element_template"] = {
-                "template": {
-                    "element_create": [{"elements": cells, "statement": "$if"}],
-                    "pagemap": self.PAGE_MAP_SETTINGS,
-                },
-            }
+            if "element_template" not in result:
+                result["element_template"] = {
+                    "template": {
+                        "element_create": [{"elements": cells, "statement": "$if"}],
+                        "pagemap": self.PAGE_MAP_SETTINGS,
+                    },
+                }
+            else:
+                elements: list[dict] = result["element_template"]["template"]["element_create"][0]["elements"]
+                elements.extend(cells)
             result["row_num"] = table_data.num_rows
             result["col_num"] = table_data.num_cols
             result["type"] = "pde_table"

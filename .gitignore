@@ -26,6 +26,7 @@ venv.bak/
 # Testing related
 .test
 outputs*
+tests
 
 # Directories for model downloaded
 rapidocr_models
