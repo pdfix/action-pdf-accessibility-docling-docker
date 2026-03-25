@@ -241,7 +241,7 @@ class DoclingWrapper:
             # Render PDF pages into images
             for page_index in range(pages_count):
                 page_number: int = page_index + 1
-                suffix: str = f"_page_{page_number}"
+                suffix: str = f"-page-{page_number}"
                 image_filename: str = f"{self.path.stem}{suffix}.png"
                 image_path: Path = temp_folder.joinpath(image_filename)
 
@@ -257,7 +257,7 @@ class DoclingWrapper:
             # Run docling and convert data
             for page_index in range(pages_count):
                 page_number = page_index + 1
-                suffix = f"_page_{page_number}"
+                suffix = f"-page-{page_number}"
                 image_path = temp_folder.joinpath(f"{self.path.stem}{suffix}.png")
 
                 try:
@@ -444,13 +444,15 @@ class DoclingWrapper:
         element.page_number = page_number
 
         # Fix references
-        suffix: str = f"_page_{page_number}"
+        suffix: str = f"-page-{page_number}"
         element.item.self_ref = f"{element.item.self_ref}{suffix}"
         if isinstance(element.item, FloatingItem):
             for footnote in element.item.footnotes:
                 footnote.cref = f"{footnote.cref}{suffix}"
             for caption in element.item.captions:
                 caption.cref = f"{caption.cref}{suffix}"
+            for reference in element.item.references:
+                reference.cref = f"{reference.cref}{suffix}"
 
         # Repeat for children
         for child in element.children:

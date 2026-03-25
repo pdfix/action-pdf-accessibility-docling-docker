@@ -468,7 +468,7 @@ class TemplateJsonCreator:
             for cell in row:
                 cell_row: int = cell.start_row_offset_idx + 1
                 cell_column: int = cell.start_col_offset_idx + 1
-                cell_id: str = f"{table_ref}_cell_{cell_row}_{cell_column}"
+                # cell_id: str = f"{table_ref}-cell-{cell_row}-{cell_column}"
                 cell_scope: str = self._get_cell_scope(cell)
                 cell_dict: dict = {
                     "cell_column": str(cell_row),
@@ -478,8 +478,8 @@ class TemplateJsonCreator:
                     "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
                     "cell_scope": cell_scope,
                     "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
-                    "name": cell_id,
-                    "parent": table_ref,
+                    # "name": cell_id,
+                    # "parent": table_ref,
                     "type": "pde_cell",
                 }
                 if cell.bbox:
