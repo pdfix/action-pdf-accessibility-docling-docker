@@ -246,7 +246,7 @@ class DoclingWrapper:
                 image_path: Path = temp_folder.joinpath(image_filename)
 
                 page: pdfium.PdfPage = pdf.get_page(page_index)
-                page_bitmap: pdfium.PdfBitmap = page.render(scale=ZOOM)  # , rotation=page.get_rotation())
+                page_bitmap: pdfium.PdfBitmap = page.render(scale=ZOOM)
                 page_image: Image.Image = page_bitmap.to_pil()
                 page_image.save(image_path, format="PNG")
 

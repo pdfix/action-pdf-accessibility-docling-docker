@@ -246,7 +246,7 @@ class TemplateJsonCreator:
                     },
                 }
             # if bbox_list is None:
-            #     result["bbox"] = self._calculate_bbox_from_children(element.children, page_height)
+            #     result["bbox"] = self._calculate_bbox_from_children(element.children, page_view, page_height)
 
         if isinstance(item, TextItem):
             hyperlink: Optional[Union[AnyUrl, Path]] = item.hyperlink
