@@ -9,3 +9,4 @@ PROGRESS_FIRST_STEP: int = 10  # Initialize (open document, read page count, etc
 PROGRESS_FOURTH_STEP: int = 70  # Autotagging
 PROGRESS_SECOND_STEP: int = 900  # Run AI heavy workload (+ rendering + template conversion)
 PROGRESS_THIRD_STEP: int = 30  # Creating template
+ZOOM: float = 1.0  # Docling project uses 1.0 zoom

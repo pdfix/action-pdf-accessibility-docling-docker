@@ -80,7 +80,7 @@ class CreateTemplateJsonUsingDocling:
             progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
-            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_THIRD_STEP)
+            creator: TemplateJsonCreator = TemplateJsonCreator(self.input_path_str, progress_bar, PROGRESS_THIRD_STEP)
             json_dict: dict = creator.process_document(document)
 
             progress_bar.n = PROGRESS_FIRST_STEP + PROGRESS_SECOND_STEP + PROGRESS_THIRD_STEP

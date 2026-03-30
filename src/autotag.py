@@ -97,7 +97,7 @@ class AutotagUsingDoclingLayoutRecognition:
             progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
-            creator: TemplateJsonCreator = TemplateJsonCreator(progress_bar, PROGRESS_THIRD_STEP)
+            creator: TemplateJsonCreator = TemplateJsonCreator(self.input_path_str, progress_bar, PROGRESS_THIRD_STEP)
             template_json_dict: dict = creator.process_document(document)
 
             # Save template to file

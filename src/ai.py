@@ -38,7 +38,7 @@ from tqdm import tqdm
 # )
 # from cell_processor import CellProcessor
 # from exceptions import PdfixFailedToOpenException, PdfixFailedToRenderException, PdfixInitializeException
-from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER
+from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, ZOOM
 from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
 
@@ -246,7 +246,7 @@ class DoclingWrapper:
                 image_path: Path = temp_folder.joinpath(image_filename)
 
                 page: pdfium.PdfPage = pdf.get_page(page_index)
-                page_bitmap: pdfium.PdfBitmap = page.render(scale=2.0)
+                page_bitmap: pdfium.PdfBitmap = page.render(scale=ZOOM)  # , rotation=page.get_rotation())
                 page_image: Image.Image = page_bitmap.to_pil()
                 page_image.save(image_path, format="PNG")
 

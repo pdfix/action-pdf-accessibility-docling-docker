@@ -6,7 +6,6 @@ from typing import Optional, Union
 from docling_core.types.doc import (
     BoundingBox,
     CodeItem,
-    # ContentLayer,
     CoordOrigin,
     DescriptionAnnotation,
     DocItem,
@@ -30,11 +29,13 @@ from docling_core.types.doc import (
     TextItem,
     TitleItem,
 )
+from pdfixsdk import GetPdfix, PdfDevRect, PdfDoc, Pdfix, PdfPage, PdfPageView, PdfRect, __version__
 from pydantic import AnyUrl
 from tqdm import tqdm
 
 from ai import InternalDocument, InternalElement, InternalPage
-from constants import DOCKER_IMAGE
+from constants import DOCKER_IMAGE, ZOOM
+from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
 from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
 
 
@@ -58,14 +59,16 @@ class TemplateJsonCreator:
         }
     ]
 
-    def __init__(self, progress_bar: tqdm, total_progress_units: int) -> None:
+    def __init__(self, input_path_str: str, progress_bar: tqdm, total_progress_units: int) -> None:
         """
         Initializes pdfix sdk template json creation by preparing list for each page.
 
         Args:
+            input_path_str (str): Path to PDF document to create template for.
             progress_bar (tqdm): Progress bar to update about processing.
             total_progress_units (int): Total number of units for progress bar for processing.
         """
+        self.input_path_str = input_path_str
         self.template_json_pages: list = []
         self.progress_bar: tqdm = progress_bar
         self.total_progress_units: int = total_progress_units
@@ -87,6 +90,7 @@ class TemplateJsonCreator:
             "created": created_date,
             "modified": created_date,
             "notes": f"Created using Docling Project {document.docling_version} inside {docker_image}",
+            "sdk_version": __version__,
             # we are creating first one always so it is always "1"
             "version": "1",
         }
@@ -94,12 +98,39 @@ class TemplateJsonCreator:
         if len(document.pages) == 0:
             self.progress_bar.update(self.total_progress_units)
         else:
+            pdfix: Optional[Pdfix] = GetPdfix()
+            if pdfix is None:
+                raise PdfixInitializeException()
+
+            # Open the document
+            doc: Optional[PdfDoc] = pdfix.OpenDoc(self.input_path_str, "")
+            if doc is None:
+                raise PdfixFailedToOpenException(pdfix, self.input_path_str)
+
             step: float = self.total_progress_units / len(document.pages)
 
-            for page in document.pages:
-                page_dict: dict = self.process_page(page)
-                self.template_json_pages.append(page_dict)
-                self.progress_bar.update(step)
+            for index, page in enumerate(document.pages):
+                pdf_page: Optional[PdfPage] = doc.AcquirePage(index)
+                if pdf_page is None:
+                    raise PdfixFailedToTagException(pdfix, "Failed to acquire the page")
+
+                try:
+                    page_view: Optional[PdfPageView] = pdf_page.AcquirePageView(ZOOM, 0)
+                    if page_view is None:
+                        raise PdfixFailedToTagException(pdfix, "Failed to acquire the page view")
+
+                    try:
+                        page_dict: dict = self.process_page(page, page_view)
+                        self.template_json_pages.append(page_dict)
+                        self.progress_bar.update(step)
+                    except Exception:
+                        raise
+                    finally:
+                        page_view.Release()
+                except Exception:
+                    raise
+                finally:
+                    pdf_page.Release()
 
         return {
             "metadata": metadata,
@@ -109,18 +140,19 @@ class TemplateJsonCreator:
             },
         }
 
-    def process_page(self, page: InternalPage) -> dict:
+    def process_page(self, page: InternalPage, page_view: PdfPageView) -> dict:
         """
         Prepare json template for PDFix SDK for one page and save it internally to use later in
         create_json_dict_for_document.
 
         Args:
             page (InternalPage): Results from docling about page.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
 
         Returns:
             Json dict for one page.
         """
-        page_elements: list = self._create_page(page)
+        page_elements: list = self._create_page(page, page_view)
 
         json_for_page = {
             "comment": f"Page {page.number}",
@@ -132,13 +164,14 @@ class TemplateJsonCreator:
         }
         return json_for_page
 
-    def _create_page(self, page: InternalPage) -> list:
+    def _create_page(self, page: InternalPage, page_view: PdfPageView) -> list:
         """
         Prepare initial structural elements for the template based on
         detected regions.
 
         Args:
             page (InternalPage): Results from docling about page.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
 
         Returns:
             List of elements with parameters.
@@ -148,18 +181,21 @@ class TemplateJsonCreator:
         page_h: float = page.height
 
         for element in page.ordered_elements:
-            result: list[dict] = self._create_elements(element, page_h, False)
+            result: list[dict] = self._create_elements(element, page_view, page_h, False)
 
             results.extend(result)
 
         return results
 
-    def _create_elements(self, element: InternalElement, page_height: float, include_parent_key: bool) -> list[dict]:
+    def _create_elements(
+        self, element: InternalElement, page_view: PdfPageView, page_height: float, include_parent_key: bool
+    ) -> list[dict]:
         """
         Create element dict for json as pdfix template expects. Some items can result in multiple dict.
 
         Args:
             element (InternalElement): Element to create dict for.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
             page_height (float): Height of the page to convert bbox.
 
         Returns:
@@ -175,7 +211,7 @@ class TemplateJsonCreator:
         flag_list: list[str] = []
         if element.continuous_element is not None:
             flag_list.append("continuous")
-        bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_height)
+        bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_view, page_height)
         if bbox_list is not None:
             result["bbox"] = bbox_list
         label: str = self._get_label(element)
@@ -193,7 +229,7 @@ class TemplateJsonCreator:
 
         for child in element.children:
             child_result: list[dict] = self._create_elements(
-                child, page_height, append_children_instead_of_including_them
+                child, page_view, page_height, append_children_instead_of_including_them
             )
             children.extend(child_result)
 
@@ -306,7 +342,7 @@ class TemplateJsonCreator:
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
-            cells: list = self._create_cells(table_data, page_height, element_ref)
+            cells: list = self._create_cells(table_data, page_view, page_height, element_ref)
             if "element_template" not in result:
                 result["element_template"] = {
                     "template": {
@@ -356,12 +392,15 @@ class TemplateJsonCreator:
 
         return results
 
-    def _get_template_bbox(self, element: InternalElement, page_height: float) -> Optional[list[str]]:
+    def _get_template_bbox(
+        self, element: InternalElement, page_view: PdfPageView, page_height: float
+    ) -> Optional[list[str]]:
         """
         Get bounding box for json as pdfix template expects.
 
         Args:
             element (InternalElement): Element to get bbox for.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
             page_height (float): Height of the page to convert bbox.
 
         Returns:
@@ -370,43 +409,48 @@ class TemplateJsonCreator:
         item: NodeItem = element.item
         if isinstance(item, DocItem):
             provenance: ProvenanceItem = item.prov[element.provenance_index]
-            bbox: BoundingBox = self._get_bottom_left_bbox(provenance.bbox, page_height)
-            return self._convert_bbox_to_list_str(bbox)
+            pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
+            return self._convert_pdfrect_to_list_str(pdf_rect)
 
         return None
 
-    def _convert_bbox_to_list_str(self, bbox: BoundingBox) -> list[str]:
+    def _convert_bbox_to_pdfrect(self, bbox: BoundingBox, page_view: PdfPageView, page_height: float) -> PdfRect:
         """
-        Convert bounding box to list of strings as pdfix template expects.
+        Convert bounding box to PDFix SDK PdfRect.
+        CoordOrigin.BOTTOMLEFT is PDF system where [0, 0] is in bottom left part.
+        CoordOrigin.TOPLEFT is Image system where [0, 0] is in top left part.
+        PDFix SDK RectToPage expects image coordinates and creates PDF coordinates in respect to rotation, etc.
 
         Args:
             bbox (BoundingBox): Bounding box to convert.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
+
+        Returns:
+            PDFix SDK PdfRect.
+        """
+        if bbox.coord_origin == CoordOrigin.BOTTOMLEFT:
+            # Convert to top left origin for PDFix SDK
+            bbox = bbox.to_top_left_origin(page_height)
+
+        rectangle: PdfDevRect = PdfDevRect()
+        rectangle.left = round(bbox.l)
+        rectangle.top = round(bbox.t)
+        rectangle.right = round(bbox.r)
+        rectangle.bottom = round(bbox.b)
+
+        return page_view.RectToPage(rectangle)
+
+    def _convert_pdfrect_to_list_str(self, pdf_rect: PdfRect) -> list[str]:
+        """
+        Convert PDFix SDK PdfRect to list of strings as pdfix template expects.
+
+        Args:
+            pdf_rect (PdfRect): PDFix SDK rectangle to convert.
 
         Returns:
             List of strings representing bbox for json.
         """
-        return [
-            str(round(bbox.l, 2)),
-            str(round(bbox.b, 2)),
-            str(round(bbox.r, 2)),
-            str(round(bbox.t, 2)),
-        ]
-
-    def _get_bottom_left_bbox(self, bbox: BoundingBox, page_height: float) -> BoundingBox:
-        """
-        Convert bounding box to bottom-left origin if needed.
-
-        Args:
-            bbox (BoundingBox): Bounding box to convert.
-            page_height (float): Height of the page to convert bbox.
-
-        Returns:
-            Bounding box with bottom-left origin.
-        """
-        if bbox.coord_origin == CoordOrigin.TOPLEFT:
-            return bbox.to_bottom_left_origin(page_height)
-
-        return bbox
+        return [str(pdf_rect.left), str(pdf_rect.bottom), str(pdf_rect.right), str(pdf_rect.top)]
 
     def _get_label(self, element: InternalElement) -> str:
         """
@@ -425,36 +469,13 @@ class TemplateJsonCreator:
             return str(item.label)
         return ""
 
-    # def _get_content_layer(self, element: InternalElement) -> str:
-    #     """
-    #     Get content layer value for json as pdfix template expects.
-
-    #     Args:
-    #         element (InternalElement): Element to get content layer for.
-
-    #     Returns:
-    #         Content layer as string for json purposes.
-    #     """
-    #     layer: ContentLayer = element.item.content_layer
-    #     match layer:
-    #         case ContentLayer.BACKGROUND:
-    #             return "BACKGROUND"
-    #         case ContentLayer.BODY:
-    #             return "BODY"
-    #         case ContentLayer.FURNITURE:
-    #             return "FURNITURE"
-    #         case ContentLayer.INVISIBLE:
-    #             return "INVISIBLE"
-    #         case ContentLayer.NOTES:
-    #             return "NOTES"
-    #     return str(layer)
-
-    def _create_cells(self, table: TableData, page_height: float, table_ref: str) -> list:
+    def _create_cells(self, table: TableData, page_view: PdfPageView, page_height: float, table_ref: str) -> list:
         """
         Create cell elements for table in json as pdfix template expects.
 
         Args:
             table (TableData): Table data from docling.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
             page_height (float): Height of the page to convert bbox.
             table_ref (str): ID of the table parent.
 
@@ -483,8 +504,8 @@ class TemplateJsonCreator:
                     "type": "pde_cell",
                 }
                 if cell.bbox:
-                    bbox: BoundingBox = self._get_bottom_left_bbox(cell.bbox, page_height)
-                    cell_dict["bbox"] = self._convert_bbox_to_list_str(bbox)
+                    pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
+                    cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
                 if cell.text:
                     cell_dict["text"] = cell.text
                 cells.append(cell_dict)
@@ -550,29 +571,33 @@ class TemplateJsonCreator:
                 return "Description"
             return "Ordered"
         else:
+            disc_markers: list[str] = ["•", "●", "◉", "◌", "◍", "◎", "○", "·", "˚", "°", "∙"]
+            square_markers: list[str] = ["▪", "▫", "■", "□", "▣", "▤", "▥", "▦", "▧", "▨", "▩"]
+            arrows: list[str] = ["→", "⇒", "➔", "➙", "➛", "➜", "➝", "➞", "➟", "➠", "➡", "►", "▶", "▸", "‣", "➤", "➢"]
+            check_markers: list[str] = ["✓", "✔", "✗", "✘", "☑", "☒", "☓"]
+            rest: list[str] = ["-", "*", "+", "⁃", "−", "–"]
+
             if marker == "":
                 return "None"
-            if marker in ["•", "●", "◉", "◌", "◍", "◎", "○", "·", "˚", "°", "∙"]:
+            if marker in disc_markers:
                 return "Disc"
-            if marker in ["▪", "▫", "■", "□", "▣", "▤", "▥", "▦", "▧", "▨", "▩"]:
+            if marker in square_markers:
                 return "Square"
             if len(marker) > 1:
                 return "Description"
-            # Docling for bullet symbols uses:
-            # r"[\u2022\u2023\u25E6\u2043\u204C\u204D\u2219\u25AA\u25AB\u25CF\u25CB]"  # Various bullet symbols
-            # r"[-*+•·‣⁃]",  # Common ASCII and Unicode bullets
-            # r"[►▶▸‣➤➢]",  # Arrow-like bullets
-            # r"[✓✔✗✘]",  # Checkmark bullets
-            if marker in ["−", "‣", "⁃", "–"]:
+            if marker in arrows or marker in check_markers or marker in rest:
                 return "Unordered"
         return "None"
 
-    def _calculate_bbox_from_children(self, children: list[InternalElement], page_height: float) -> list[str]:
+    def _calculate_bbox_from_children(
+        self, children: list[InternalElement], page_view: PdfPageView, page_height: float
+    ) -> list[str]:
         """
         Calculate bounding box that covers all children elements.
 
         Args:
             children (list[InternalElement]): List of child elements to calculate bbox for.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
             page_height (float): Height of the page to convert bbox.
 
         Returns:
@@ -581,26 +606,27 @@ class TemplateJsonCreator:
         if len(children) == 0:
             return ["0", "0", "0", "0"]
 
-        result: Optional[BoundingBox] = None
+        result: Optional[PdfRect] = None
 
         for child in children:
             if isinstance(child.item, DocItem) and len(child.item.prov) > 0:
                 provenance: ProvenanceItem = child.item.prov[0]
-                bbox: BoundingBox = self._get_bottom_left_bbox(provenance.bbox, page_height)
+                bbox: BoundingBox = provenance.bbox
+                pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(bbox, page_view, page_height)
 
                 if result is None:
-                    result = BoundingBox(l=bbox.l, b=bbox.b, r=bbox.r, t=bbox.t, coord_origin=CoordOrigin.BOTTOMLEFT)
+                    result = pdf_rect
                 else:
-                    if bbox.l < result.l:
-                        result.l = bbox.l
-                    if bbox.b < result.b:
-                        result.b = bbox.b
-                    if bbox.r > result.r:
-                        result.r = bbox.r
-                    if bbox.t > result.t:
-                        result.t = bbox.t
+                    if pdf_rect.left < result.left:
+                        result.left = pdf_rect.left
+                    if pdf_rect.bottom < result.bottom:
+                        result.bottom = pdf_rect.bottom
+                    if pdf_rect.right > result.right:
+                        result.right = pdf_rect.right
+                    if pdf_rect.top > result.top:
+                        result.top = pdf_rect.top
 
         if result is None:
             return ["0", "0", "0", "0"]
 
-        return self._convert_bbox_to_list_str(result)
+        return self._convert_pdfrect_to_list_str(result)
