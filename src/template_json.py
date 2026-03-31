@@ -223,28 +223,45 @@ class TemplateJsonCreator:
 
         # If any elment has language added in future add result["lang"] = "en" or other language code
 
+        # Process element children:
         children: list[dict] = []
-        # For now put everything where Docling returns it
-        append_children_instead_of_including_them: bool = False  # isinstance(item, TableItem)
 
+        # Keep docling structure with exceptions:
+        # - under table only cells are allowed
+        # - put captions and footnotes from image out so they are tagged as separate elements
         for child in element.children:
-            child_result: list[dict] = self._create_elements(
-                child, page_view, page_height, append_children_instead_of_including_them
-            )
-            children.extend(child_result)
+            # Find out if child should go under or next to
+            extract_child: bool = False
+            if isinstance(item, TableItem):
+                extract_child = True
+            if isinstance(item, PictureItem):
+                if isinstance(child.item, TextItem) and (
+                    child.item.label == DocItemLabel.CAPTION or child.item.label == DocItemLabel.FOOTNOTE
+                ):
+                    extract_child = True
+
+            # Create child
+            child_result: list[dict] = self._create_elements(child, page_view, page_height, extract_child)
+
+            # Place caption tags
+            if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
+                result["caption"] = child.id()
+
+            # Place child
+            if extract_child:
+                results.extend(child_result)
+            else:
+                children.extend(child_result)
 
         if len(children) > 0:
-            if append_children_instead_of_including_them:
-                for child_dict in children:
-                    # Caption and Footnotes under Table are put after Table
-                    results.append(child_dict)
-            else:
-                result["element_template"] = {
-                    "template": {
-                        "element_create": [{"elements": children, "statement": "$if"}],
-                        "pagemap": self.PAGE_MAP_SETTINGS,
-                    },
-                }
+            # Write children under element into template
+            result["element_template"] = {
+                "template": {
+                    "element_create": [{"elements": children, "statement": "$if"}],
+                    "pagemap": self.PAGE_MAP_SETTINGS,
+                },
+            }
+
             # if bbox_list is None:
             #     result["bbox"] = self._calculate_bbox_from_children(element.children, page_view, page_height)
 
@@ -353,8 +370,13 @@ class TemplateJsonCreator:
             else:
                 elements: list[dict] = result["element_template"]["template"]["element_create"][0]["elements"]
                 elements.extend(cells)
-            result["row_num"] = table_data.num_rows
-            result["col_num"] = table_data.num_cols
+            if len(cells) == table_data.num_rows * table_data.num_cols:
+                result["row_num"] = table_data.num_rows
+                result["col_num"] = table_data.num_cols
+            else:
+                grid_size: str = f"table grid size: {table_data.num_rows}x{table_data.num_cols}"
+                warning_message: str = f"Warning: cells: {len(cells)} do not match {grid_size}"
+                result["comment"] = f"{result['comment']} {warning_message}"
             result["type"] = "pde_table"
         elif isinstance(item, KeyValueItem):
             # result["text_flag"] = "no_new_line"
