@@ -1,5 +1,6 @@
 import re
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
@@ -37,6 +38,12 @@ from ai import InternalDocument, InternalElement, InternalPage
 from constants import DOCKER_IMAGE, ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
 from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
+
+
+class Placement(Enum):
+    UNDER = "under"  # default
+    BEFORE = "before"
+    AFTER = "after"
 
 
 class TemplateJsonCreator:
@@ -231,27 +238,31 @@ class TemplateJsonCreator:
         # - put captions and footnotes from image out so they are tagged as separate elements
         for child in element.children:
             # Find out if child should go under or next to
-            extract_child: bool = False
+            place_element: Placement = Placement.UNDER
+            if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
+                place_element = Placement.BEFORE
+                if "parent" in result:
+                    result.pop("parent", None)
+                # Place caption tags
+                result["caption"] = child.id()
             if isinstance(item, TableItem):
-                extract_child = True
+                place_element = Placement.AFTER
             if isinstance(item, PictureItem):
-                if isinstance(child.item, TextItem) and (
-                    child.item.label == DocItemLabel.CAPTION or child.item.label == DocItemLabel.FOOTNOTE
-                ):
-                    extract_child = True
+                if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.FOOTNOTE:
+                    place_element = Placement.AFTER
 
             # Create child
-            child_result: list[dict] = self._create_elements(child, page_view, page_height, extract_child)
-
-            # Place caption tags
-            if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
-                result["caption"] = child.id()
+            # No parent keys for now
+            children_result: list[dict] = self._create_elements(child, page_view, page_height, False)  # extract_child)
 
             # Place child
-            if extract_child:
-                results.extend(child_result)
-            else:
-                children.extend(child_result)
+            if place_element == Placement.UNDER:
+                children.extend(children_result)
+            elif place_element == Placement.BEFORE:
+                for child_result in reversed(children_result):
+                    results.insert(0, child_result)
+            elif place_element == Placement.AFTER:
+                results.extend(children_result)
 
         if len(children) > 0:
             # Write children under element into template
@@ -285,7 +296,7 @@ class TemplateJsonCreator:
         # For all
         flag_list.append("no_join")
         flag_list.append("no_split")
-        flag_list.append("no_expand")
+        # flag_list.append("no_expand") # Let Bboxes expand to get elements that just intersect
 
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
@@ -298,8 +309,11 @@ class TemplateJsonCreator:
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListItem):
-            result["numbering"] = self._get_list_type(item)
-            result["label_text"] = item.marker
+            list_type: str = self._get_list_type(item)
+            if list_type != "None":
+                result["numbering"] = list_type
+            if item.marker:
+                result["label_text"] = item.marker
             result["label"] = "label_list"  # if we know nesting use "li_1", "li_2" etc. for different levels
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"

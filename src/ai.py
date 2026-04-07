@@ -240,6 +240,7 @@ class DoclingWrapper:
 
             # Render PDF pages into images
             for page_index in range(pages_count):
+                self.progress_bar.set_description(f"Rendering page {page_index + 1}/{pages_count}")
                 page_number: int = page_index + 1
                 suffix: str = f"-page-{page_number}"
                 image_filename: str = f"{self.path.stem}{suffix}.png"
@@ -256,6 +257,7 @@ class DoclingWrapper:
 
             # Run docling and convert data
             for page_index in range(pages_count):
+                self.progress_bar.set_description(f"Processing page {page_index + 1}/{pages_count}")
                 page_number = page_index + 1
                 suffix = f"-page-{page_number}"
                 image_path = temp_folder.joinpath(f"{self.path.stem}{suffix}.png")
