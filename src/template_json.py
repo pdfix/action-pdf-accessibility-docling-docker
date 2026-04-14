@@ -7,7 +7,6 @@ from typing import Optional, Union
 from docling_core.types.doc import (
     BoundingBox,
     CodeItem,
-    CoordOrigin,
     DescriptionAnnotation,
     DocItem,
     DocItemLabel,
@@ -30,14 +29,16 @@ from docling_core.types.doc import (
     TextItem,
     TitleItem,
 )
-from pdfixsdk import GetPdfix, PdfDevRect, PdfDoc, Pdfix, PdfPage, PdfPageView, PdfRect, __version__
+from pdfixsdk import GetPdfix, PdfDoc, Pdfix, PdfPage, PdfPageView, PdfRect, __version__
 from pydantic import AnyUrl
 from tqdm import tqdm
 
 from ai import InternalDocument, InternalElement, InternalPage
 from constants import DOCKER_IMAGE, ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
+from process_table import DoclingPostProcessingTable
 from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
+from utils_sdk import convert_bbox_to_pdfrect
 
 
 class Placement(Enum):
@@ -373,7 +374,9 @@ class TemplateJsonCreator:
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
-            cells: list = self._create_cells(table_data, page_view, page_height, element_ref)
+            # We already know this value but for processing table we need to extract it as integers:
+            table_pdfrect: PdfRect = self._get_table_pdfrect(element, page_view, page_height)
+            cells: list = self._create_cells(table_pdfrect, table_data, page_view, page_height, element_ref)
             if "element_template" not in result:
                 result["element_template"] = {
                     "template": {
@@ -445,36 +448,10 @@ class TemplateJsonCreator:
         item: NodeItem = element.item
         if isinstance(item, DocItem):
             provenance: ProvenanceItem = item.prov[element.provenance_index]
-            pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
+            pdf_rect: PdfRect = convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
             return self._convert_pdfrect_to_list_str(pdf_rect)
 
         return None
-
-    def _convert_bbox_to_pdfrect(self, bbox: BoundingBox, page_view: PdfPageView, page_height: float) -> PdfRect:
-        """
-        Convert bounding box to PDFix SDK PdfRect.
-        CoordOrigin.BOTTOMLEFT is PDF system where [0, 0] is in bottom left part.
-        CoordOrigin.TOPLEFT is Image system where [0, 0] is in top left part.
-        PDFix SDK RectToPage expects image coordinates and creates PDF coordinates in respect to rotation, etc.
-
-        Args:
-            bbox (BoundingBox): Bounding box to convert.
-            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
-
-        Returns:
-            PDFix SDK PdfRect.
-        """
-        if bbox.coord_origin == CoordOrigin.BOTTOMLEFT:
-            # Convert to top left origin for PDFix SDK
-            bbox = bbox.to_top_left_origin(page_height)
-
-        rectangle: PdfDevRect = PdfDevRect()
-        rectangle.left = round(bbox.l)
-        rectangle.top = round(bbox.t)
-        rectangle.right = round(bbox.r)
-        rectangle.bottom = round(bbox.b)
-
-        return page_view.RectToPage(rectangle)
 
     def _convert_pdfrect_to_list_str(self, pdf_rect: PdfRect) -> list[str]:
         """
@@ -505,11 +482,34 @@ class TemplateJsonCreator:
             return str(item.label)
         return ""
 
-    def _create_cells(self, table: TableData, page_view: PdfPageView, page_height: float, table_ref: str) -> list:
+    def _get_table_pdfrect(self, table_element: InternalElement, page_view: PdfPageView, page_height: float) -> PdfRect:
+        """
+        Get bounding box for table in PdfRect as PDFix SDK uses.
+
+        Args:
+            table_element (InternalElement): Table element to get bbox for.
+            page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
+            page_height (float): Height of the page to convert bbox.
+
+        Returns:
+            Bounding box for table in PdfRect as PDFix SDK uses.
+        """
+        item: NodeItem = table_element.item
+        if isinstance(item, DocItem):
+            provenance: ProvenanceItem = item.prov[table_element.provenance_index]
+            return convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
+
+        print("We should never get here as table element should have bounding box from Docling.")
+        return PdfRect()
+
+    def _create_cells(
+        self, table_pdfrect: PdfRect, table: TableData, page_view: PdfPageView, page_height: float, table_ref: str
+    ) -> list:
         """
         Create cell elements for table in json as pdfix template expects.
 
         Args:
+            table_pdfrect (PdfRect): Bounding box for table in PdfRect as PDFix SDK uses.
             table (TableData): Table data from docling.
             page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
             page_height (float): Height of the page to convert bbox.
@@ -520,6 +520,11 @@ class TemplateJsonCreator:
         """
         cells: list = []
         table_cells: list[list[TableCell]] = table.grid
+
+        post_processed_table: DoclingPostProcessingTable = DoclingPostProcessingTable(
+            table_pdfrect, table, table_cells, page_view, page_height
+        )
+        post_processed_bboxes: list[list[PdfRect]] = post_processed_table.get_bboxes()
 
         for row in table_cells:
             for cell in row:
@@ -540,7 +545,8 @@ class TemplateJsonCreator:
                     "type": "pde_cell",
                 }
                 if cell.bbox:
-                    pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
+                    pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
+                    # pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
                     cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
                 if cell.text:
                     cell_dict["text"] = cell.text
@@ -648,7 +654,7 @@ class TemplateJsonCreator:
             if isinstance(child.item, DocItem) and len(child.item.prov) > 0:
                 provenance: ProvenanceItem = child.item.prov[0]
                 bbox: BoundingBox = provenance.bbox
-                pdf_rect: PdfRect = self._convert_bbox_to_pdfrect(bbox, page_view, page_height)
+                pdf_rect: PdfRect = convert_bbox_to_pdfrect(bbox, page_view, page_height)
 
                 if result is None:
                     result = pdf_rect

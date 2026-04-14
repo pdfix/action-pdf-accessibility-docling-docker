@@ -2,7 +2,8 @@ import ctypes
 import json
 from typing import Optional
 
-from pdfixsdk import Pdfix
+from docling_core.types.doc import BoundingBox, CoordOrigin
+from pdfixsdk import PdfDevRect, Pdfix, PdfPageView, PdfRect
 
 from exceptions import PdfixActivationException, PdfixAuthorizationException
 
@@ -25,6 +26,33 @@ def authorize_sdk(pdfix: Pdfix, license_name: Optional[str], license_key: Option
             raise PdfixActivationException(pdfix)
     else:
         print("No license name or key provided. Using PDFix SDK trial")
+
+
+def convert_bbox_to_pdfrect(bbox: BoundingBox, page_view: PdfPageView, page_height: float) -> PdfRect:
+    """
+    Convert bounding box to PDFix SDK PdfRect.
+    CoordOrigin.BOTTOMLEFT is PDF system where [0, 0] is in bottom left part.
+    CoordOrigin.TOPLEFT is Image system where [0, 0] is in top left part.
+    PDFix SDK RectToPage expects image coordinates and creates PDF coordinates in respect to rotation, etc.
+
+    Args:
+        bbox (BoundingBox): Bounding box to convert.
+        page_view (PdfPageView): PDFix SDK page view to get page dimensions for bbox conversion.
+
+    Returns:
+        PDFix SDK PdfRect.
+    """
+    if bbox.coord_origin == CoordOrigin.BOTTOMLEFT:
+        # Convert to top left origin for PDFix SDK
+        bbox = bbox.to_top_left_origin(page_height)
+
+    rectangle: PdfDevRect = PdfDevRect()
+    rectangle.left = round(bbox.l)
+    rectangle.top = round(bbox.t)
+    rectangle.right = round(bbox.r)
+    rectangle.bottom = round(bbox.b)
+
+    return page_view.RectToPage(rectangle)
 
 
 def json_to_raw_data(json_dict: dict) -> tuple[ctypes.Array[ctypes.c_ubyte], int]:
