@@ -53,7 +53,7 @@ class DoclingPostProcessingTable:
         # Convert docling data into PDFix data
         text_bboxes: list[list[Optional[PdfRect]]] = self._get_cell_text_bboxes()
 
-        # print(f"T: ({self.table_bbox.left}, {self.table_bbox.top}, {self.table_bbox.right}, {self.table_bbox.bottom})")
+        # print(f"T ({self.table_bbox.left}, {self.table_bbox.top}, {self.table_bbox.right}, {self.table_bbox.bottom})")
         # self._pretty_print(text_bboxes)
 
         # Calculate average for each column/row line (sides are table bbox values)
