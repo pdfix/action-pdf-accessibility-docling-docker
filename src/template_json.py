@@ -36,7 +36,8 @@ from tqdm import tqdm
 from ai import InternalDocument, InternalElement, InternalPage
 from constants import DOCKER_IMAGE, ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
-from process_table import DoclingPostProcessingTable
+
+# from process_table import DoclingPostProcessingTable
 from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
 from utils_sdk import convert_bbox_to_pdfrect
 
@@ -521,10 +522,10 @@ class TemplateJsonCreator:
         cells: list = []
         table_cells: list[list[TableCell]] = table.grid
 
-        post_processed_table: DoclingPostProcessingTable = DoclingPostProcessingTable(
-            table_pdfrect, table, table_cells, page_view, page_height
-        )
-        post_processed_bboxes: list[list[PdfRect]] = post_processed_table.get_bboxes()
+        # post_processed_table: DoclingPostProcessingTable = DoclingPostProcessingTable(
+        #     table_pdfrect, table, table_cells, page_view, page_height
+        # )
+        # post_processed_bboxes: list[list[PdfRect]] = post_processed_table.get_bboxes()
 
         for row in table_cells:
             for cell in row:
@@ -533,9 +534,9 @@ class TemplateJsonCreator:
                 # cell_id: str = f"{table_ref}-cell-{cell_row}-{cell_column}"
                 cell_scope: str = self._get_cell_scope(cell)
                 cell_dict: dict = {
-                    "cell_column": str(cell_row),
+                    "cell_column": str(cell_column),
                     "cell_column_span": str(cell.col_span),
-                    "cell_row": str(cell_column),
+                    "cell_row": str(cell_row),
                     "cell_row_span": str(cell.row_span),
                     "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
                     "cell_scope": cell_scope,
@@ -545,8 +546,8 @@ class TemplateJsonCreator:
                     "type": "pde_cell",
                 }
                 if cell.bbox:
-                    pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
-                    # pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
+                    # pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
+                    pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
                     cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
                 if cell.text:
                     cell_dict["text"] = cell.text
