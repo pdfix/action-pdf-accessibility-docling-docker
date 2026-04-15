@@ -102,7 +102,7 @@ class AutotagUsingDoclingLayoutRecognition:
 
             # Save template to file
             output_directory: Path = Path(__file__).parent.parent.joinpath("output").resolve()
-            output_directory.mkdir()
+            output_directory.mkdir(exist_ok=True)
             id: str = Path(self.input_path_str).stem
             template_path: Path = output_directory.joinpath(f"{id}-template_json.json")
 
