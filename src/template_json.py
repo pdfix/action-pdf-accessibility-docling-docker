@@ -307,7 +307,7 @@ class TemplateJsonCreator:
         elif isinstance(item, SectionHeaderItem):
             level: int = item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
-            result["heading"] = "h"  # Instead of f"h{level}" use generic to force PDFix SDK to run algorithm
+            result["heading"] = "h{level}"
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListItem):
