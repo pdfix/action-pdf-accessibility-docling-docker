@@ -307,7 +307,7 @@ class TemplateJsonCreator:
         elif isinstance(item, SectionHeaderItem):
             level: int = item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
-            result["heading"] = "h{level}"
+            result["heading"] = f"h{level}"
             # result["text_flag"] = "no_new_line"
             result["type"] = "pde_text"
         elif isinstance(item, ListItem):
