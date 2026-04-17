@@ -34,13 +34,6 @@ RUN rm -rf example
 
 # Copy models data that we moved from original snapshot location
 # COPY rapidocr_models/ /usr/docling/venv/lib/python3.12/site-packages/rapidocr/models/
-# COPY .cache/hub/models--docling-project--CodeFormulaV2 
-# COPY .cache/hub/models--docling-project--docling-layout-heron
-# COPY .cache/hub/models--docling-project--docling-models
-# COPY .cache/hub/models--HuggingFaceTB--SmolVLM-256M-Instruct
-# COPY .cache/hub/models--ibm-granite--granite-vision-3.1-2b-preview
-# COPY .cache/hub/models--ibm-granite--granite-vision-3.2-2b
-# COPY .cache/hub/models--ibm-granite--granite-vision-3.3-2b
 
 
 # Copy config.json and the source code
@@ -53,8 +46,8 @@ RUN mkdir -p /data
 
 
 # # License
-# COPY THIRD_PARTY_LICENSES.md /THIRD_PARTY_LICENSES.md
-# LABEL license="https://pdfix.net/terms (PDFix SDK) and Apache License 2.0 (Docling layout by HuggingPanda)" 
+COPY THIRD_PARTY_LICENSES.md /THIRD_PARTY_LICENSES.md
+LABEL license="https://pdfix.net/terms (PDFix SDK) and MIT License (Docling by IBM Research Zurich)"
 
 
 ENTRYPOINT ["/usr/docling/venv/bin/python3", "/usr/docling/src/main.py"]
