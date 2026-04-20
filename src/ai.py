@@ -1,7 +1,6 @@
 import json
 import logging
 import tempfile
-import traceback
 from pathlib import Path
 from typing import Optional  # BinaryIO, cast
 
@@ -122,28 +121,9 @@ class DoclingWrapper:
             pipeline_options: PdfPipelineOptions = PdfPipelineOptions()
             pipeline_options.do_ocr = True
             pipeline_options.do_table_structure = True
-            # pipeline_options.table_structure_options.do_cell_matching = True
-
-            # # Docling Parse with EasyOCR (CPU only) # not installed by default
-            # # from docling.datamodel.pipeline_options import EasyOcrOptions
-            # pipeline_options.ocr_options = EasyOcrOptions()
-            # pipeline_options.ocr_options.use_gpu = False  # <-- set this.
-            # # pipeline_options.ocr_options.lang = ["en"]
-
-            # # Docling Parse with Rapid OCR
-            # # from docling.datamodel.pipeline_options import RapidOcrOptions
-            # pipeline_options.ocr_options = RapidOcrOptions()
 
             pipeline_options.do_formula_enrichment = self.do_formula_recognition
             pipeline_options.do_picture_description = self.do_image_description
-
-            # GPU:
-            # pipeline_options.accelerator_options = AcceleratorOptions(
-            #     num_threads=4, device=AcceleratorDevice.AUTO
-            # )
-
-            # CPU only
-            # pass
 
             converter: DocumentConverter = DocumentConverter(
                 format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
@@ -152,8 +132,8 @@ class DoclingWrapper:
 
             self.progress_bar.update(docling_step_units)
         except Exception as e:
-            logger.error(f"Error during docling conversion:\n{e}")
-            traceback.print_stack()
+            logger.error("Error during docling conversion:")
+            logger.exception(e)
             return None
 
         # Get Docling internal result
@@ -277,8 +257,8 @@ class DoclingWrapper:
 
                     self.progress_bar.update(docling_step)
                 except Exception as e:
-                    logger.error(f"Error during docling conversion:\n{e}")
-                    traceback.print_stack()
+                    logger.error("Error during docling conversion:")
+                    logger.exception(e)
                     return None
 
                 # Get Docling internal result

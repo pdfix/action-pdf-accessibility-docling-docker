@@ -2,19 +2,28 @@ import logging
 
 
 class ColorFormatter(logging.Formatter):
-    COLORS = {
+    COLORS: dict[str, str] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[32m",  # Green
         "WARNING": "\033[33m",  # Yellow
         "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[41m",  # Red background
     }
-    RESET = "\033[0m"
+    RESET: str = "\033[0m"
 
     def format(self, record: logging.LogRecord) -> str:
+        """
+        Format the log record.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+
+        Returns:
+            The formatted log record.
+        """
         levelname: str = record.levelname
         if levelname in self.COLORS:
-            color = self.COLORS[levelname]
+            color: str = self.COLORS[levelname]
             record.levelname = f"{color}{levelname}{self.RESET}"
         return super().format(record)
 

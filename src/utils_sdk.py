@@ -1,11 +1,15 @@
 import ctypes
 import json
+import logging
 from typing import Optional
 
 from docling_core.types.doc import BoundingBox, CoordOrigin
 from pdfixsdk import PdfDevRect, Pdfix, PdfPageView, PdfRect
 
 from exceptions import PdfixActivationException, PdfixAuthorizationException
+from logger import get_logger
+
+logger: logging.Logger = get_logger()
 
 
 def authorize_sdk(pdfix: Pdfix, license_name: Optional[str], license_key: Optional[str]) -> None:
@@ -25,7 +29,7 @@ def authorize_sdk(pdfix: Pdfix, license_name: Optional[str], license_key: Option
         if not pdfix.GetStandarsAuthorization().Activate(license_key):
             raise PdfixActivationException(pdfix)
     else:
-        print("No license name or key provided. Using PDFix SDK trial")
+        logger.info("No license name or key provided. Using PDFix SDK trial")
 
 
 def convert_bbox_to_pdfrect(bbox: BoundingBox, page_view: PdfPageView, page_height: float) -> PdfRect:

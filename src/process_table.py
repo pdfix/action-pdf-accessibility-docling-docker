@@ -1,9 +1,13 @@
+import logging
 from typing import Optional
 
 from docling_core.types.doc import TableCell, TableData
 from pdfixsdk import PdfPageView, PdfRect
 
+from logger import get_logger
 from utils_sdk import convert_bbox_to_pdfrect
+
+logger: logging.Logger = get_logger()
 
 
 class DoclingPostProcessingTable:
@@ -36,7 +40,7 @@ class DoclingPostProcessingTable:
         self.page_height: float = page_height
         self.rows: int = table_data.num_rows
         self.cols: int = table_data.num_cols
-        # print(f"Post processing table [{self.rows}x{self.cols}]")
+        # logger.info(f"Post processing table [{self.rows}x{self.cols}]")
 
     def get_bboxes(self) -> list[list[PdfRect]]:
         """
@@ -53,7 +57,9 @@ class DoclingPostProcessingTable:
         # Convert docling data into PDFix data
         text_bboxes: list[list[Optional[PdfRect]]] = self._get_cell_text_bboxes()
 
-        # print(f"T ({self.table_bbox.left}, {self.table_bbox.top}, {self.table_bbox.right}, {self.table_bbox.bottom})")
+        # table: PdfRect = self.table_bbox
+        # dimensions: str = f"{table.left}, {table.top}, {table.right}, {table.bottom}"
+        # logger.debug(f"Table bbox: ({dimensions})")
         # self._pretty_print(text_bboxes)
 
         # Calculate average for each column/row line (sides are table bbox values)
@@ -76,7 +82,7 @@ class DoclingPostProcessingTable:
                 row_bboxes.append(rectangle)
             bboxes.append(row_bboxes)
 
-        # print("Result:")
+        # logger.debug("Result:")
         # self._pretty_print(bboxes)
 
         # Return it
@@ -126,7 +132,7 @@ class DoclingPostProcessingTable:
         # For each cell fill left and right line into each column line list
         for row in self.table_cells:
             for cell in row:
-                # print(f"Accessing cell: [{cell.start_row_offset_idx}, {cell.start_col_offset_idx}]")
+                # logger.debug(f"Accessing cell: [{cell.start_row_offset_idx}, {cell.start_col_offset_idx}]")
                 cell_bbox: Optional[PdfRect] = text_bboxes[cell.start_row_offset_idx][cell.start_col_offset_idx]
                 if cell_bbox:
                     left_index: int = cell.start_col_offset_idx
@@ -137,7 +143,7 @@ class DoclingPostProcessingTable:
                         vertical_lines[right_index].append(cell_bbox.right)
 
         # for index, line in enumerate(vertical_lines):
-        #     print(f"Line {index}: {line}")
+        #     logger.debug(f"Line {index}: {line}")
 
         # Calculate average if data is available
         average_lines: list[Optional[int]] = []
@@ -183,7 +189,7 @@ class DoclingPostProcessingTable:
         # For each cell fill top and bottom line into each row line list
         for row in self.table_cells:
             for cell in row:
-                # print(f"Accessing cell: [{cell.start_row_offset_idx}, {cell.start_col_offset_idx}]")
+                # logger.debug(f"Accessing cell: [{cell.start_row_offset_idx}, {cell.start_col_offset_idx}]")
                 cell_bbox: Optional[PdfRect] = text_bboxes[cell.start_row_offset_idx][cell.start_col_offset_idx]
                 if cell_bbox:
                     first_index: int = cell.start_row_offset_idx
@@ -194,7 +200,7 @@ class DoclingPostProcessingTable:
                         horizontal_lines[second_index].append(cell_bbox.top)
 
         # for index, line in enumerate(horizontal_lines):
-        #     print(f"Line {index}: {line}")
+        #     logger.debug(f"Line {index}: {line}")
 
         # Calculate average if data is available
         average_lines: list[Optional[int]] = []
@@ -258,9 +264,10 @@ class DoclingPostProcessingTable:
     #     for row_index, row in enumerate(bboxes):
     #         for column_index, cell in enumerate(row):
     #             if cell:
-    #                 print(f"[{row_index}, {column_index}] ({cell.left}, {cell.top}, {cell.right}, {cell.bottom})")
+    #                 dimensions: str = f"{cell.left}, {cell.top}, {cell.right}, {cell.bottom}"
+    #                 logger.debug(f"[{row_index}, {column_index}] ({dimensions})")
     #             else:
-    #                 print(f"[{row_index}, {column_index}] (None)")
+    #                 logger.debug(f"[{row_index}, {column_index}] (None)")
 
     # def _pretty_print_list(self, list_name: str, list: list[int]) -> None:
-    #     print(f"{list_name}: {list}")
+    #     logger.debug(f"{list_name}: {list}")

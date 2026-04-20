@@ -235,16 +235,17 @@ def main() -> None:
     try:
         args = parser.parse_args()
     except ExpectedException as e:
-        logger.exception(e.message)
+        logger.error(e.message)
         sys.exit(e.error_code)
     except SystemExit as e:
         if e.code != 0:
-            logger.exception(MESSAGE_ARG_GENERAL)
+            logger.error(MESSAGE_ARG_GENERAL)
             sys.exit(EC_ARG_GENERAL)
         # This happens when --help is used, exit gracefully
         sys.exit(0)
     except Exception as e:
-        logger.exception(f"Failed to run the program: {e}")
+        logger.error("Failed to run the program:")
+        logger.exception(e)
         sys.exit(1)
 
     if hasattr(args, "func"):
@@ -258,10 +259,11 @@ def main() -> None:
         try:
             args.func(args)
         except ExpectedException as e:
-            logger.exception(e.message)
+            logger.error(e.message)
             sys.exit(e.error_code)
         except Exception as e:
-            logger.exception(f"Failed to run the program: {e}")
+            logger.error("Failed to run the program:")
+            logger.exception(e)
             sys.exit(1)
         finally:
             # Make sure to let update thread finish before exiting

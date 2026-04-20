@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import date
 from enum import Enum
@@ -36,10 +37,13 @@ from tqdm import tqdm
 from ai import InternalDocument, InternalElement, InternalPage
 from constants import DOCKER_IMAGE, ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
+from logger import get_logger
 
 # from process_table import DoclingPostProcessingTable
 from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
 from utils_sdk import convert_bbox_to_pdfrect
+
+logger: logging.Logger = get_logger()
 
 
 class Placement(Enum):
@@ -500,7 +504,7 @@ class TemplateJsonCreator:
             provenance: ProvenanceItem = item.prov[table_element.provenance_index]
             return convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
 
-        print("We should never get here as table element should have bounding box from Docling.")
+        logger.error("We should never get here as table element should have bounding box from Docling.")
         return PdfRect()
 
     def _create_cells(

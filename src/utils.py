@@ -1,12 +1,15 @@
 import base64
 import json
-import sys
+import logging
 from pathlib import Path
 from typing import Any
 
 import latex2mathml.converter
 
 from constants import CONFIG_FILE
+from logger import get_logger
+
+logger: logging.Logger = get_logger()
 
 
 def convert_latex_to_mathml(latex_formula: str) -> str:
@@ -55,5 +58,5 @@ def get_current_version() -> str:
             config: Any = json.load(file)
             return config.get("version", "unknown")
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error reading {CONFIG_FILE}: {e}", file=sys.stderr)
+        logger.error(f"Error reading {CONFIG_FILE}: {e}")
         return "unknown"
