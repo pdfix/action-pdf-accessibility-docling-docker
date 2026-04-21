@@ -543,12 +543,13 @@ class TemplateJsonCreator:
                     "cell_row": str(cell_row),
                     "cell_row_span": str(cell.row_span),
                     "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
-                    "cell_scope": cell_scope,
                     "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
                     # "name": cell_id,
                     # "parent": table_ref,
                     "type": "pde_cell",
                 }
+                if cell_scope:
+                    cell_dict["cell_scope"] = cell_scope
                 if cell.bbox:
                     # pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
                     pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
