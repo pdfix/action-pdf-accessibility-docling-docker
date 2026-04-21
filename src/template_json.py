@@ -69,6 +69,7 @@ class TemplateJsonCreator:
             "initial_element_only": "1",
             "artifact_untagged": "1",
             "initial_elements_keep_empty": "0",
+            "initial_element_overlap": "0.8f",
         }
     ]
 
@@ -302,7 +303,7 @@ class TemplateJsonCreator:
         # For all
         flag_list.append("no_join")
         flag_list.append("no_split")
-        # flag_list.append("no_expand") # Let Bboxes expand to get elements that just intersect
+        flag_list.append("no_expand")  # Let Bboxes expand to get elements that just intersect
 
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
