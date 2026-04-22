@@ -69,7 +69,7 @@ class TemplateJsonCreator:
             "initial_element_only": "1",
             "artifact_untagged": "1",
             "initial_elements_keep_empty": "0",
-            "initial_element_overlap": "0.8f",
+            "initial_element_overlap": "0.8",
         }
     ]
 
