@@ -28,7 +28,7 @@ To run the Docker container, map directories containing PDF documents to the con
 In this example local folder is maped into container and file `input.pdf` is taken as input PDF document. Output is saved into current folder as `output.pdf`.
 
 ```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.pdf --do_image_description true --do_formula_recognition true --per_page true
+docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.pdf --do_image_description true --do_formula_recognition true --per_page true --reading_order docling_rd
 ```
 
 These arguments are optional:
@@ -44,6 +44,13 @@ These arguments are optional:
   Each page is rendered and processed individually, providing visual feedback on progress.  
   Note: This mode increases processing time, as Docling initialization is repeated for each page.
 
+- `--reading_order` (default `docling_rd`)  
+  User is chosing from `pdfix_rd`, `docling_rd`, `pdf_rd` and `x_y_rd`.  
+  `pdfix_rd` uses PDFix SDK reading order.  
+  `docling_rd` uses Docling post-processing reading order.  
+  `pdf_rd` uses PDF reading order.  
+  `x_y_rd` uses X and Y coordinates to determine reading order.  
+
 These arguments are for an account-based PDFix license.
 
 ```bash
@@ -57,7 +64,7 @@ Contact support for more information.
 Similar as previous but output is JSON file containing layout template for PDFix SDK.
 
 ```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest template --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.json --do_image_description true --do_formula_recognition true --per_page true
+docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest template --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.json --do_image_description true --do_formula_recognition true --per_page true --reading_order docling_rd
 ```
 
 ## Exporting Configuration for Integration
@@ -67,10 +74,6 @@ To export the configuration JSON file, use the following command:
 ```bash
 docker run -v $(pwd):/data -w /data --rm pdfix/alt-text-blip-large:latest config -o config.json
 ```
-
-## Model
-
-Used model is [Docling-Layout](https://huggingface.co/HuggingPanda/docling-layout) in offline mode (whole model is inside docker image). It is configured to work with CPU.
 
 ## License
 

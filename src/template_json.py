@@ -3,7 +3,7 @@ import re
 from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from docling_core.types.doc import (
     BoundingBox,
@@ -35,7 +35,7 @@ from pydantic import AnyUrl
 from tqdm import tqdm
 
 from ai import InternalDocument, InternalElement, InternalPage
-from constants import DOCKER_IMAGE, ZOOM
+from constants import DOCKER_IMAGE, RD_DOCLING, RD_PDF, RD_PDFIX, RD_XY, ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
 from logger import get_logger
 
@@ -70,22 +70,43 @@ class TemplateJsonCreator:
             "artifact_untagged": "1",
             "initial_elements_keep_empty": "0",
             "initial_element_overlap": "0.8",
+            "rd_sort": "0",
         }
     ]
+    RD_PDFIX: str = RD_PDFIX
+    RD_DOCLING: str = RD_DOCLING
+    RD_PDF: str = RD_PDF
+    RD_XY: str = RD_XY
 
-    def __init__(self, input_path_str: str, progress_bar: tqdm, total_progress_units: int) -> None:
+    def __init__(self, input_path_str: str, reading_order: str, progress_bar: tqdm, total_progress_units: int) -> None:
         """
         Initializes pdfix sdk template json creation by preparing list for each page.
 
         Args:
             input_path_str (str): Path to PDF document to create template for.
+            reading_order (str): Reading order for the document.
             progress_bar (tqdm): Progress bar to update about processing.
             total_progress_units (int): Total number of units for progress bar for processing.
         """
         self.input_path_str = input_path_str
+        self.reading_order: str = reading_order
+        self.add_rd_indexes: bool = False
         self.template_json_pages: list = []
         self.progress_bar: tqdm = progress_bar
         self.total_progress_units: int = total_progress_units
+
+        # According to user selected reading order, set up template settings
+        match self.reading_order:
+            case self.RD_PDFIX:
+                self.PAGE_MAP_SETTINGS[0]["rd_sort"] = "0"
+            case self.RD_DOCLING:
+                self.PAGE_MAP_SETTINGS[0]["rd_sort"] = "3"
+                self.add_rd_indexes = True
+            case self.RD_PDF:
+                self.PAGE_MAP_SETTINGS[0]["rd_sort"] = "3"
+                self.add_rd_indexes = True
+            case self.RD_XY:
+                self.PAGE_MAP_SETTINGS[0]["rd_sort"] = "2"
 
     def process_document(self, document: InternalDocument) -> dict:
         """
@@ -135,6 +156,8 @@ class TemplateJsonCreator:
 
                     try:
                         page_dict: dict = self.process_page(page, page_view)
+                        if self.add_rd_indexes:
+                            page_dict = self._add_rd_indexes(page_dict)
                         self.template_json_pages.append(page_dict)
                         self.progress_bar.update(step)
                     except Exception:
@@ -679,3 +702,39 @@ class TemplateJsonCreator:
             return ["0", "0", "0", "0"]
 
         return self._convert_pdfrect_to_list_str(result)
+
+    def _add_rd_indexes(self, page_dict: dict) -> dict:
+        """
+        Add reading order indexes to the page dict.
+
+        For every ``elements`` list in the tree, sets ``rd_index`` on each dict
+        member to its zero-based list index, then recurses through the rest of
+        the structure.
+
+        Args:
+            page_dict (dict): Page dict to add reading order indexes to.
+
+        Returns:
+            Page dict with reading order indexes added (same object, mutated in place).
+        """
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                elements = node.get("elements")
+                if isinstance(elements, list):
+                    for list_index, member in enumerate(elements):
+                        if isinstance(member, dict):
+                            member["rd_index"] = list_index
+
+                        walk(member)
+                for key, value in node.items():
+                    if key == "elements":
+                        continue
+
+                    walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(page_dict)
+        return page_dict

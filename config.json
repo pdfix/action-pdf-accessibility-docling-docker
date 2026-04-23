@@ -10,7 +10,7 @@
             "icon": "docling",
             "category": "Accessibility",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"  --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -48,6 +48,31 @@
                     "desc": "Instead of processing whole document at once in Docling, process it page by page",
                     "type": "bool",
                     "value": false
+                },
+                {
+                    "title": "Reading Order",
+                    "name": "rd",
+                    "desc": "Which reading order algorithm to use",
+                    "type": "string",
+                    "value": "docling_rd",
+                    "set": [
+                        {
+                            "desc": "PDFix SDK",
+                            "value": "pdfix_rd"
+                        },
+                        {
+                            "desc": "Docling post-processing",
+                            "value": "docling_rd"
+                        },
+                        {
+                            "desc": "PDF reading order",
+                            "value": "pdf_rd"
+                        },
+                        {
+                            "desc": "X and Y coordinates",
+                            "value": "x_y_rd"
+                        }
+                    ]
                 }
             ],
             "errors": {
@@ -75,7 +100,7 @@
             "category": "Accessibility",
             "subtype": "create_layout_template_pdf_to_json",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -113,6 +138,31 @@
                     "desc": "Instead of processing whole document at once in Docling, process it page by page",
                     "type": "bool",
                     "value": false
+                },
+                {
+                    "title": "Reading Order",
+                    "name": "rd",
+                    "desc": "Which reading order algorithm to use",
+                    "type": "string",
+                    "value": "docling_rd",
+                    "set": [
+                        {
+                            "desc": "PDFix SDK",
+                            "value": "pdfix_rd"
+                        },
+                        {
+                            "desc": "Docling post-processing",
+                            "value": "docling_rd"
+                        },
+                        {
+                            "desc": "PDF reading order",
+                            "value": "pdf_rd"
+                        },
+                        {
+                            "desc": "X and Y coordinates",
+                            "value": "x_y_rd"
+                        }
+                    ]
                 }
             ],
             "errors": {
