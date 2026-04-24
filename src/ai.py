@@ -152,7 +152,7 @@ class DoclingWrapper:
         # Save docling result as json to file
         outputs_folder: Path = Path(__file__).parent.parent.joinpath("outputs")
         outputs_folder.mkdir(exist_ok=True)
-        docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_output.json")
+        docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_{self.reading_order}_output.json")
 
         with open(docling_json_path, "w") as f:
             json.dump(document.export_to_dict(), f, indent=4)
