@@ -32,13 +32,13 @@ class ApplyDoclingReadingOrder:
     def _apply_global_reading_order(self, node: Any) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                self.walk(value)
+                self._apply_global_reading_order(value)
         elif isinstance(node, list):
             for item in node:
                 if isinstance(item, dict) and "name" in item:
                     # Add global reading order index
                     item["rd_index"] = self._get_global_index(item["name"])
-                self.walk(item)
+                self._apply_global_reading_order(item)
 
     def _sort_elements(self, node: Any) -> None:
         if isinstance(node, dict):
@@ -87,7 +87,7 @@ class DoclingReadingOrder:
                 continue
 
             result.append(self._get_id(item))
-            children_order: list[str] = self._get_children_order(item)
+            children_order: list[str] = self._get_children_order(document, item)
             if len(children_order) > 0:
                 result.extend(children_order)
 
@@ -98,17 +98,42 @@ class DoclingReadingOrder:
         internal: InternalElement = InternalElement(item=item, parent=None)
         return internal.id()
 
-    def _get_children_order(self, item: NodeItem) -> list[str]:
+    def _get_children_order(self, document: DoclingDocument, item: NodeItem) -> list[str]:
         result: list[str] = []
 
         # Get children
-        children: list[NodeItem] = item.children
+        children: list[NodeItem] = []
+        for child_ref in item.children:
+            child: Optional[NodeItem] = self._get_item(document, child_ref.cref)
+            if child is not None:
+                children.append(child)
 
         # Get children order
         for child in children:
             result.append(self._get_id(child))
-            children_order: list[str] = self._get_children_order(item)
+            children_order: list[str] = self._get_children_order(document, item)
             if len(children_order) > 0:
                 result.extend(children_order)
 
         return result
+
+    def _get_item(self, document: DoclingDocument, reference: str) -> Optional[NodeItem]:
+        for group in document.groups:
+            if group.self_ref == reference:
+                return group
+        for text in document.texts:
+            if text.self_ref == reference:
+                return text
+        for picture in document.pictures:
+            if picture.self_ref == reference:
+                return picture
+        for table in document.tables:
+            if table.self_ref == reference:
+                return table
+        for key_value_item in document.key_value_items:
+            if key_value_item.self_ref == reference:
+                return key_value_item
+        for form_item in document.form_items:
+            if form_item.self_ref == reference:
+                return form_item
+        return None
