@@ -534,10 +534,11 @@ class TemplateJsonCreator:
 
         for row_index, row in enumerate(table_cells):
             for col_index, cell in enumerate(row):
-                # Add bbox only for top left cell when there is span
-                add_bbox: bool = row_index == cell.start_row_offset_idx and col_index == cell.start_col_offset_idx
-                cell_row: int = row_index + 1  # cell.start_row_offset_idx + 1
-                cell_column: int = col_index + 1  # cell.start_col_offset_idx + 1
+                # Regular cell is cell that should contain all information
+                # Other cells are just filler cells for spanning cells
+                regular_cell: bool = row_index == cell.start_row_offset_idx and col_index == cell.start_col_offset_idx
+                cell_column: int = col_index + 1
+                cell_row: int = row_index + 1
                 # cell_id: str = f"{table_ref}-cell-{cell_row}-{cell_column}"
                 cell_scope: str = self._get_cell_scope(cell)
                 cell_dict: dict = {
@@ -545,20 +546,25 @@ class TemplateJsonCreator:
                     "cell_column_span": str(cell.col_span),
                     "cell_row": str(cell_row),
                     "cell_row_span": str(cell.row_span),
-                    "cell_header": self._convert_bool_to_str(cell.row_header or cell.column_header),
                     "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
                     # "name": cell_id,
                     # "parent": table_ref,
                     "type": "pde_cell",
                 }
-                if cell_scope:
-                    cell_dict["cell_scope"] = cell_scope
-                if add_bbox and cell.bbox:
-                    # pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
-                    pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
-                    cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
-                if cell.text:
-                    cell_dict["text"] = cell.text
+                if regular_cell:
+                    if cell.bbox:
+                        # pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
+                        pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
+                        cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
+                    cell_dict["cell_header"] = self._convert_bool_to_str(cell.row_header or cell.column_header)
+                    if cell_scope:
+                        cell_dict["cell_scope"] = cell_scope
+                    if cell.text:
+                        cell_dict["text"] = cell.text
+                else:
+                    # Rewrite spans to [0,0] for filler cells
+                    cell_dict["cell_column_span"] = 0
+                    cell_dict["cell_row_span"] = 0
                 cells.append(cell_dict)
 
         return cells
