@@ -532,10 +532,12 @@ class TemplateJsonCreator:
         # )
         # post_processed_bboxes: list[list[PdfRect]] = post_processed_table.get_bboxes()
 
-        for row in table_cells:
-            for cell in row:
-                cell_row: int = cell.start_row_offset_idx + 1
-                cell_column: int = cell.start_col_offset_idx + 1
+        for row_index, row in enumerate(table_cells):
+            for col_index, cell in enumerate(row):
+                # Add bbox only for top left cell when there is span
+                add_bbox: bool = row_index == cell.start_row_offset_idx and col_index == cell.start_col_offset_idx
+                cell_row: int = row_index + 1  # cell.start_row_offset_idx + 1
+                cell_column: int = col_index + 1  # cell.start_col_offset_idx + 1
                 # cell_id: str = f"{table_ref}-cell-{cell_row}-{cell_column}"
                 cell_scope: str = self._get_cell_scope(cell)
                 cell_dict: dict = {
@@ -551,7 +553,7 @@ class TemplateJsonCreator:
                 }
                 if cell_scope:
                     cell_dict["cell_scope"] = cell_scope
-                if cell.bbox:
+                if add_bbox and cell.bbox:
                     # pdf_rect: PdfRect = post_processed_bboxes[cell_row - 1][cell_column - 1]
                     pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
                     cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
