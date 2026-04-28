@@ -65,7 +65,7 @@ docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest 
 To export the configuration JSON file, use the following command:
 
 ```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/alt-text-blip-large:latest config -o config.json
+docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest config -o config.json
 ```
 
 ## Model
