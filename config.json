@@ -64,7 +64,7 @@
                 "27": "Failed to create template JSON.",
                 "137": "Memory probably run out. Try using Per Page Processing."
             },
-            "progress_regex": "^(?!\\s*Loading weights:)(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%""
+            "progress_regex": "^(?!\\s*Loading weights:)(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%"
         },
         {
             "title": "Create Layout Template JSON (Docling)",
@@ -129,7 +129,7 @@
                 "27": "Failed to create template JSON.",
                 "137": "Memory probably run out. Try using Per Page Processing."
             },
-            "progress_regex": "^(?!\\s*Loading weights:)(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%""
+            "progress_regex": "^(?!\\s*Loading weights:)(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%"
         }
     ]
 }
