@@ -58,6 +58,13 @@ def set_arguments(
     """
     for name in names:
         match name:
+            case "bbox_overlap":
+                parser.add_argument(
+                    "--bbox_overlap",
+                    type=float,
+                    default=0.6,
+                    help="How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).",
+                )
             case "do_formula_recognition":
                 parser.add_argument(
                     "--do_formula_recognition",
@@ -112,6 +119,7 @@ def run_autotag_subcommand(args) -> None:
         args.do_formula_recognition,
         args.do_image_description,
         args.per_page,
+        args.bbox_overlap,
     )
 
 
@@ -123,6 +131,7 @@ def autotagging_pdf(
     do_formula_recognition: bool,
     do_image_description: bool,
     per_page: bool,
+    bbox_overlap: float,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -134,10 +143,18 @@ def autotagging_pdf(
         output_path (str): Path to PDF document.
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
+        bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
     """
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
-            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description, per_page
+            license_name,
+            license_key,
+            input_path,
+            output_path,
+            do_formula_recognition,
+            do_image_description,
+            per_page,
+            bbox_overlap,
         )
         autotag.process_file()
     else:
@@ -153,6 +170,7 @@ def run_template_subcommand(args) -> None:
         args.do_formula_recognition,
         args.do_image_description,
         args.per_page,
+        args.bbox_overlap,
     )
 
 
@@ -164,6 +182,7 @@ def create_template_json(
     do_formula_recognition: bool,
     do_image_description: bool,
     per_page: bool,
+    bbox_overlap: float,
 ) -> None:
     """
     Creating template json for PDF document using provided arguments
@@ -175,10 +194,18 @@ def create_template_json(
         output_path (str): Path to JSON file.
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
+        bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
     """
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
         template_creator = CreateTemplateJsonUsingDocling(
-            license_name, license_key, input_path, output_path, do_formula_recognition, do_image_description, per_page
+            license_name,
+            license_key,
+            input_path,
+            output_path,
+            do_formula_recognition,
+            do_image_description,
+            per_page,
+            bbox_overlap,
         )
         template_creator.process_file()
     else:
@@ -212,7 +239,16 @@ def main() -> None:
     )
     set_arguments(
         autotag_subparser,
-        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description", "per_page"],
+        [
+            "name",
+            "key",
+            "input",
+            "output",
+            "do_formula_recognition",
+            "do_image_description",
+            "per_page",
+            "bbox_overlap",
+        ],
         True,
         "The output PDF file.",
     )
@@ -225,7 +261,16 @@ def main() -> None:
     )
     set_arguments(
         template_subparser,
-        ["name", "key", "input", "output", "do_formula_recognition", "do_image_description", "per_page"],
+        [
+            "name",
+            "key",
+            "input",
+            "output",
+            "do_formula_recognition",
+            "do_image_description",
+            "per_page",
+            "bbox_overlap",
+        ],
         True,
         "The output JSON file.",
     )

@@ -45,6 +45,7 @@ class AutotagUsingDoclingLayoutRecognition:
         do_formula_recognition: bool,
         do_image_description: bool,
         per_page: bool,
+        bbox_overlap: float,
     ) -> None:
         """
         Initialize class for tagging pdf.
@@ -57,6 +58,7 @@ class AutotagUsingDoclingLayoutRecognition:
             do_formula_recognition (bool): Do also formula recognition.
             do_image_description (bool): Do also image desrciption.
             per_page (bool): Process PDF page by page.
+            bbox_overlap (float): How much bounding box from docling must overlap with PDF element area.
         """
         self.license_name: Optional[str] = license_name
         self.license_key: Optional[str] = license_key
@@ -65,6 +67,7 @@ class AutotagUsingDoclingLayoutRecognition:
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
         self.per_page: bool = per_page
+        self.bbox_overlap: float = bbox_overlap
 
     def process_file(self) -> None:
         """
@@ -97,7 +100,9 @@ class AutotagUsingDoclingLayoutRecognition:
             progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
-            creator: TemplateJsonCreator = TemplateJsonCreator(self.input_path_str, progress_bar, PROGRESS_THIRD_STEP)
+            creator: TemplateJsonCreator = TemplateJsonCreator(
+                self.input_path_str, self.bbox_overlap, progress_bar, PROGRESS_THIRD_STEP
+            )
             template_json_dict: dict = creator.process_document(document)
 
             # Save template to file

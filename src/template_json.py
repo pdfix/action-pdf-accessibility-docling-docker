@@ -69,11 +69,11 @@ class TemplateJsonCreator:
             "initial_element_only": "1",
             "artifact_untagged": "1",
             "initial_elements_keep_empty": "0",
-            "initial_element_overlap": "0.8",
+            "initial_element_overlap": "0.6",
         }
     ]
 
-    def __init__(self, input_path_str: str, progress_bar: tqdm, total_progress_units: int) -> None:
+    def __init__(self, input_path_str: str, bbox_overlap: float, progress_bar: tqdm, total_progress_units: int) -> None:
         """
         Initializes pdfix sdk template json creation by preparing list for each page.
 
@@ -81,11 +81,14 @@ class TemplateJsonCreator:
             input_path_str (str): Path to PDF document to create template for.
             progress_bar (tqdm): Progress bar to update about processing.
             total_progress_units (int): Total number of units for progress bar for processing.
+            bbox_overlap (float): How much bounding box from docling must overlap with PDF element area.
         """
         self.input_path_str = input_path_str
         self.template_json_pages: list = []
         self.progress_bar: tqdm = progress_bar
         self.total_progress_units: int = total_progress_units
+
+        self.PAGE_MAP_SETTINGS[0]["initial_element_overlap"] = str(bbox_overlap)
 
     def process_document(self, document: InternalDocument) -> dict:
         """

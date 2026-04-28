@@ -10,7 +10,7 @@
             "icon": "docling",
             "category": "Accessibility",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -48,6 +48,13 @@
                     "desc": "Instead of processing whole document at once in Docling, process it page by page",
                     "type": "bool",
                     "value": false
+                },
+                {
+                    "title": "Bbox percentual increase",
+                    "name": "bbox_overlap",
+                    "desc": "Docling bounding box must by x percent of PDF element area to tag it",
+                    "type": "float",
+                    "value": "0.6"
                 }
             ],
             "errors": {
@@ -75,7 +82,7 @@
             "category": "Accessibility",
             "subtype": "create_layout_template_pdf_to_json",
             "local": true,
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -113,6 +120,13 @@
                     "desc": "Instead of processing whole document at once in Docling, process it page by page",
                     "type": "bool",
                     "value": false
+                },
+                {
+                    "title": "Bbox percentual increase",
+                    "name": "bbox_overlap",
+                    "desc": "Docling bounding box must by x percent of PDF element area to tag it",
+                    "type": "float",
+                    "value": "0.6"
                 }
             ],
             "errors": {
