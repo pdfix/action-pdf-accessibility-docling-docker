@@ -59,11 +59,15 @@ def set_arguments(
     for name in names:
         match name:
             case "bbox_overlap":
+                bbox_help: str = (
+                    "Controls how much a candidate bounding box must overlap"
+                    + "with the initial element's bounding box to be considered a child."
+                )
                 parser.add_argument(
                     "--bbox_overlap",
                     type=float,
                     default=0.6,
-                    help="How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).",
+                    help=bbox_help,
                 )
             case "do_formula_recognition":
                 parser.add_argument(

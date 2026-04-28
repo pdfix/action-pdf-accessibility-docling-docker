@@ -50,9 +50,9 @@
                     "value": false
                 },
                 {
-                    "title": "Bbox percentual increase",
+                    "title": "BBox overlap ratio",
                     "name": "bbox_overlap",
-                    "desc": "Docling bounding box must by x percent of PDF element area to tag it",
+                    "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
                     "type": "float",
                     "value": "0.6"
                 }
@@ -122,9 +122,9 @@
                     "value": false
                 },
                 {
-                    "title": "Bbox percentual increase",
+                    "title": "BBox overlap ratio",
                     "name": "bbox_overlap",
-                    "desc": "Docling bounding box must by x percent of PDF element area to tag it",
+                    "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
                     "type": "float",
                     "value": "0.6"
                 }
