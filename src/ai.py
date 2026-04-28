@@ -26,6 +26,7 @@ from docling_core.types.doc import (
 )
 from PIL import Image
 from tqdm import tqdm
+from transformers.utils import logging as transformers_logging
 
 # from pdfixsdk import (
 #     GetPdfix,
@@ -86,6 +87,10 @@ class DoclingWrapper:
 
         # Disable RapidOCR logging
         logging.getLogger("RapidOCR").disabled = True
+
+        # Docling pulls in Hugging Face deps (transformers / huggingface_hub) which can emit their own tqdm bars
+        # (notably: "Loading weights"). Disable those so only our own progress bar is shown.
+        transformers_logging.disable_progress_bar()
 
     def process_pdf(self, per_page: bool) -> Optional[InternalDocument]:
         """
