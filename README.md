@@ -1,89 +1,79 @@
-# Autotag PDF Document Using Docling and PDFix SDK
+# PDF Accessibility Docling
 
-A Dockerized solution for automated PDF tagging using Docling and PDFix SDK. Supports pdf tagging, pdfix layout template generation.
+Uses Docling-Layout for layout recognition, running fully offline. For PDF output without watermarks, a **PDFix SDK** license is required.
 
 ## Table of Contents
 
-- [Autotag PDF Document Using Docling and PDFix SDK](#autotag-pdf-document-using-docling-and-pdfix-sdk)
-  - [Table of Contents](#table-of-contents)
-  - [Getting Started](#getting-started)
-  - [Run a Docker Container ](#run-docker-container)
-    - [Run Docker Container for Autotagging](#run-docker-container-for-autotagging)
-    - [Run Docker Container for Layout Template JSON Creation](#run-docker-container-for-template-json-creation)
-  - [Exporting PDFix Configuration for Integration](#exporting-pdfix-configuration-for-integration)
+- [PDF Accessibility Docling](#pdf-accessibility-docling)
+  - [Getting started](#getting-started)
+  - [Usage](#usage)
+  - [Commands](#commands)
+  - [Arguments](#arguments)
+  - [Examples](#examples)
   - [Model](#model)
-  - [License](#license)
-  - [Help \& Support](#help--support)
+  - [Help \& support](#help--support)
+  - [Licenses](#licenses)
 
-## Getting Started
+## Getting started
 
-To use this application, Docker must be installed on the system. If Docker is not installed, please follow the instructions on the [official Docker website](https://docs.docker.com/get-docker/) to install it.
-First run will pull the docker image, which may take some time. Make your own image for more advanced use.
+You need Docker installed. The first run downloads the image and may take longer than later runs.
 
-## Run a Docker Container
+## Usage
 
-### Run Docker Container for Autotagging
-
-To run the Docker container, map directories containing PDF documents to the container (using the `-v` parameter) and pass the paths to the input/output PDF documents inside the running container.
-In this example local folder is maped into container and file `input.pdf` is taken as input PDF document. Output is saved into current folder as `output.pdf`.
+Mount a folder into the container and run a subcommand:
 
 ```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.pdf --do_image_description true --do_formula_recognition true --per_page true
+docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:latest <command> [options]
 ```
 
-These arguments are optional:
+## Commands
 
-- `--do_image_description` (default: false)  
-  Enables a VLM (Vision-Language Model) to generate descriptions for raster images.
+- `tag`: Autotag a PDF (PDF → PDF)
+- `template`: Create a PDFix layout template JSON (PDF → JSON)
 
-- `--do_formula_recognition` (default: false)  
-  Enables an AI model that converts formulas into their LaTeX representation.
+## Arguments
 
-- `--per_page` (default: false)  
-  Processes the PDF page by page instead of sending the entire document to Docling at once.  
-  Each page is rendered and processed individually, providing visual feedback on progress.  
-  Note: This mode increases processing time, as Docling initialization is repeated for each page.
+### Common (`tag` and `template`)
 
-These arguments are for an account-based PDFix license.
+| Option | Required | Type / expected value | Description |
+|---|:---:|---|---|
+| `--input`, `-i` | yes | Path to an existing `.pdf` file | Input PDF |
+| `--output`, `-o` | yes | Path for `.pdf` (`tag`) or `.json` (`template`) | Output file |
+| `--name` | no | String (PDFix account license name) | PDFix license name |
+| `--key` | no | String (PDFix account license key) | PDFix license key |
+| `--do_image_description` | no | Boolean string: `true`/`false`, `yes`/`no`, `1`/`0` (default: `false`) | Alt text for Figure tags |
+| `--do_formula_recognition` | no | Boolean string (default: `false`) | Formula recognition |
+| `--per_page` | no | Boolean string (default: `false`) | Process page by page |
+| `--bbox_overlap` | no | Float (default **0.6**) | Docling bbox overlap threshold |
+
+## Examples
+
+Tag a PDF:
 
 ```bash
---name ${LICENSE_NAME} --key ${LICENSE_KEY}
+docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:latest \
+  tag --name "${LICENSE_NAME}" --key "${LICENSE_KEY}" \
+  -i /data/input.pdf -o /data/output.pdf \
+  --do_image_description true --do_formula_recognition true --per_page true
 ```
 
-Contact support for more information.
-
-### Run Docker Container for Layout Template JSON Creation
-
-Similar as previous but output is JSON file containing layout template for PDFix SDK.
+Create a layout template JSON:
 
 ```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest template --name $LICENSE_NAME --key $LICENSE_KEY -i input.pdf -o output.json --do_image_description true --do_formula_recognition true --per_page true
-```
-
-## Exporting Configuration for Integration
-
-To export the configuration JSON file, use the following command:
-
-```bash
-docker run -v $(pwd):/data -w /data --rm pdfix/pdf-accessibility-docling:latest config -o config.json
+docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:latest \
+  template --name "${LICENSE_NAME}" --key "${LICENSE_KEY}" \
+  -i /data/input.pdf -o /data/output.json
 ```
 
 ## Model
 
-Used model is [Docling-Layout](https://huggingface.co/HuggingPanda/docling-layout) in offline mode (whole model is inside docker image). It is configured to work with CPU.
+The image includes the Docling-Layout model and runs fully offline (CPU).
 
-## License
+## Help & support
 
-This repository uses the [Docling](https://docling-project.github.io/docling/), which is licensed under the [MIT License](https://github.com/docling-project/docling/blob/main/LICENSE). See `THIRD_PARTY_LICENSES.md` for details.
+For PDFix SDK licensing or issues, contact `support@pdfix.net`.
 
-The Docker image includes:
+## Licenses
 
-- PDFix SDK, subject to [PDFix Terms](https://pdfix.net/terms)
-- Docling, MIT License
-
-Trial version of the PDFix SDK may apply a watermark on the page and redact random parts of the PDF including the scanned image in background. Contact us to get an evaluation or production license.
-
-## Help & Support
-
-To obtain a PDFix SDK license or report an issue please contact us at support@pdfix.net.
-For more information visit https://pdfix.net
+- [PDFix Terms](https://pdfix.net/terms)
+- [Docling](https://docling-project.github.io/docling/) — [MIT License](https://github.com/docling-project/docling/blob/main/LICENSE)
