@@ -23,7 +23,7 @@ from docling_core.types.doc import (
 from docling_ibm_models.layoutmodel.layout_predictor import LayoutPredictor
 from huggingface_hub import snapshot_download
 from PIL import Image
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from internal_classes import InternalElement
 from logger import get_logger
@@ -47,9 +47,10 @@ class CellProcessor:
         Constructor.
         """
         self.processor: Any = AutoProcessor.from_pretrained(self.MODEL_ID)
-        self.model: Any = AutoModelForVision2Seq.from_pretrained(
+        _model: Any = AutoModelForImageTextToText.from_pretrained(
             self.MODEL_ID  # , torch_dtype=torch.float32, device_map="auto"
-        ).to(self.DEVICE)
+        )
+        self.model: Any = _model.to(self.DEVICE)
 
         # self.model.eval()
 
