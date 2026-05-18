@@ -14,7 +14,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -59,6 +59,31 @@
                     "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
                     "type": "float",
                     "value": "0.6"
+                },
+                {
+                    "title": "Reading Order",
+                    "name": "rd",
+                    "desc": "Which reading order algorithm to use",
+                    "type": "string",
+                    "value": "docling_rd",
+                    "set": [
+                        {
+                            "desc": "PDFix SDK",
+                            "value": "pdfix_rd"
+                        },
+                        {
+                            "desc": "Docling post-processing",
+                            "value": "docling_rd"
+                        },
+                        {
+                            "desc": "PDF reading order",
+                            "value": "pdf_rd"
+                        },
+                        {
+                            "desc": "X and Y coordinates",
+                            "value": "x_y_rd"
+                        }
+                    ]
                 }
             ],
             "errors": {
@@ -90,7 +115,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -135,6 +160,31 @@
                     "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
                     "type": "float",
                     "value": "0.6"
+                }.
+                {
+                    "title": "Reading Order",
+                    "name": "rd",
+                    "desc": "Which reading order algorithm to use",
+                    "type": "string",
+                    "value": "docling_rd",
+                    "set": [
+                        {
+                            "desc": "PDFix SDK",
+                            "value": "pdfix_rd"
+                        },
+                        {
+                            "desc": "Docling post-processing",
+                            "value": "docling_rd"
+                        },
+                        {
+                            "desc": "PDF reading order",
+                            "value": "pdf_rd"
+                        },
+                        {
+                            "desc": "X and Y coordinates",
+                            "value": "x_y_rd"
+                        }
+                    ]
                 }
             ],
             "errors": {

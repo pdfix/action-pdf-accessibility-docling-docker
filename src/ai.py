@@ -24,6 +24,7 @@ from docling_core.types.doc import (
     ProvenanceItem,
     # TableItem,
 )
+from hierarchical.postprocessor import ResultPostprocessor
 from PIL import Image
 from tqdm import tqdm
 from transformers.utils import logging as transformers_logging
@@ -38,7 +39,7 @@ from transformers.utils import logging as transformers_logging
 # )
 # from cell_processor import CellProcessor
 # from exceptions import PdfixFailedToOpenException, PdfixFailedToRenderException, PdfixInitializeException
-from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, ZOOM
+from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, RD_DOCLING, ZOOM
 from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
 
@@ -57,6 +58,7 @@ class DoclingWrapper:
         path: Path,
         do_formula_recognition: bool,
         do_image_description: bool,
+        reading_order: str,
         progress_bar: tqdm,
         progress_units_total: int,
     ) -> None:
@@ -67,12 +69,14 @@ class DoclingWrapper:
             path (Path): Path to PDF document.
             do_formula_recognition (bool): If formulas are post-processed by Docling to create LaTeX representations.
             do_image_description (bool): If pictures are post-processed by Docling to create image descriptions.
+            reading_order (str): Reading order for the document.
             progress_bar (tqdm): Progress bar to update during processing.
             progress_units_total (int): Total number of units for progress bar for processing.
         """
         self.path: Path = path
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
+        self.reading_order: str = reading_order
         self.progress_bar: tqdm = progress_bar
         self.progress_units_total: int = progress_units_total
 
@@ -134,6 +138,9 @@ class DoclingWrapper:
                 format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
             )
             result: ConversionResult = converter.convert(self.path)
+            if self.reading_order == RD_DOCLING:
+                # The postprocessor modifies the result.document in place.
+                ResultPostprocessor(result).process()
 
             self.progress_bar.update(docling_step_units)
         except Exception as e:
@@ -259,6 +266,9 @@ class DoclingWrapper:
                         format_options={InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options)}
                     )
                     result: ConversionResult = converter.convert(image_path)
+                    if self.reading_order == RD_DOCLING:
+                        # The postprocessor modifies the result.document in place.
+                        ResultPostprocessor(result).process()
 
                     self.progress_bar.update(docling_step)
                 except Exception as e:

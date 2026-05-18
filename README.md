@@ -45,6 +45,7 @@ docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:lates
 | `--do_formula_recognition` | no | Boolean string (default: `false`) | Formula recognition |
 | `--per_page` | no | Boolean string (default: `false`) | Process page by page |
 | `--bbox_overlap` | no | Float (default **0.6**) | Docling bbox overlap threshold |
+| `--reading_order` | no | One string from `pdfix_rd`, `docling_rd`, `pdf_rd` and `x_y_rd` (default: `docling_rd`) | Reading order logic |
 
 ## Examples
 
