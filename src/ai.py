@@ -80,12 +80,6 @@ class DoclingWrapper:
         self.progress_bar: tqdm = progress_bar
         self.progress_units_total: int = progress_units_total
 
-        # self.cell_processor: CellProcessor = CellProcessor()
-        # self.cached_page_images: dict[int, Path] = {}
-        # self.pdfix: Optional[Pdfix] = None
-        # self.doc: Optional[PdfDoc] = None
-        # self.cell_images: list[Path] = []
-
         # Disable warnings about NNPACK unsupported hardware when running in docker image
         torch.backends.nnpack.set_flags(False)
 
@@ -194,22 +188,6 @@ class DoclingWrapper:
                     logger.error(f"Cannot add element: {element.id()} to page_index: {page_index}")
 
             self.progress_bar.update(bar_step)
-
-        # # Post-process docling data to include table cell contents
-        # internal_document = self._post_process_docling_data(internal_document)
-
-        # # clean up files
-        # for page_image in self.cached_page_images.values():
-        #     try:
-        #         page_image.unlink()
-        #     except Exception as e:
-        #         logger.warning(f"Cannot delete cached page image {page_image.as_posix()}: {e}")
-
-        # for cell_image in self.cell_images:
-        #     try:
-        #         cell_image.unlink()
-        #     except Exception as e:
-        #         logger.warning(f"Cannot delete cached cell image {cell_image.as_posix()}: {e}")
 
         return internal_document
 
@@ -466,126 +444,8 @@ class DoclingWrapper:
             Updated InternalDocument with table cell contents included.
         """
         for page in internal_document.pages:
-            # page_height: float = page.height
             new_elements: list[InternalElement] = []
             for element in page.ordered_elements:
-                # After a lot of testing (running docling on cell, running VLM on cell) post-processing of table cells
-                # does not work currently (we are unable to detect images in cells or any other structure).
-                # if isinstance(element.item, TableItem):
-                #     table: TableItem = element.item
-                #     cell_elements: list[InternalElement] = self._post_process_table(table, page_height)
-                #     new_elements.extend(cell_elements)
                 new_elements.append(element)
             page.ordered_elements = new_elements
         return internal_document
-
-    # def _post_process_table(self, table: TableItem, page_height: float) -> list[InternalElement]:
-    #     """
-    #     Post-process table cells to create InternalElements inside cells.
-
-    #     Args:
-    #         table (TableItem): Table item from Docling.
-    #         page_height (float): Height of the page where table is located.
-
-    #     Returns:
-    #         List of InternalElements inside table cells.
-    #     """
-    #     internal_elements: list[InternalElement] = []
-
-    #     # Table data
-    #     # Only first provenance is usefull as all provenances are inside the same page
-    #     provenance: ProvenanceItem = table.prov[0]
-    #     page_number: int = provenance.page_no
-    #     bbox: BoundingBox = provenance.bbox
-    #     if bbox.coord_origin == CoordOrigin.TOPLEFT:
-    #         bbox = bbox.to_bottom_left_origin(page_height)
-    #     table_id: str = table.self_ref.replace("#", "").replace("/", "")
-
-    #     # Walk through cells
-    #     for row in table.data.grid:
-    #         for cell in row:
-    #             cell_row: int = cell.start_row_offset_idx + 1
-    #             cell_column: int = cell.start_col_offset_idx + 1
-    #             cell_id: str = f"{table_id}_cell_{cell_row}_{cell_column}"
-    #             cell_bbox: Optional[BoundingBox] = cell.bbox
-    #             if cell_bbox is None:
-    #                 # usually skipping empty cells as they do not have bbox
-    #                 continue
-    #             if cell_bbox.coord_origin == CoordOrigin.BOTTOMLEFT:
-    #                 cell_bbox = cell_bbox.to_top_left_origin(page_height)
-
-    #             cell_image_path: Path = self._create_image_of_cell(page_number, cell_bbox, cell_id)
-
-    #             # elements: list[InternalElement] = self.cell_processor.process_cell_vlm(
-    #             #     cell_image_path, page_number, cell_bbox, cell_id
-    #             # )
-
-    #             # elements: list[InternalElement] = self.cell_processor.process_cell_docling(
-    #             #     cell_image_path, page_number, cell_bbox, cell_id
-    #             # )
-
-    #             elements: list[InternalElement] = []
-
-    #             internal_elements.extend(elements)
-
-    #     return internal_elements
-
-    # def _create_image_of_cell(self, page_number: int, cell_bbox: BoundingBox, cell_id: str) -> Path:
-    #     """
-    #     Creates image of cell from PDF document.
-
-    #     Args:
-    #         page_number (int): Page number where cell is located.
-    #         cell_bbox (BoundingBox): Bounding box of the cell in top-left origin (PIL Image.crop needs it that way).
-    #         cell_id (str): ID of the cell for temporary image file.
-
-    #     Returns:
-    #         Path to image of the cell.
-    #     """
-    #     page_image_path: Path = self._render_page_to_image(page_number)
-
-    #     with tempfile.NamedTemporaryFile(prefix=f"{cell_id}-", suffix=".jpg", delete=False) as temp_file:
-    #         crop_image(page_image_path, cell_bbox, cast(BinaryIO, temp_file))
-
-    #         cell_image_path: Path = Path(temp_file.name)
-    #         self.cell_images.append(cell_image_path)
-    #         return cell_image_path
-
-    # def _render_page_to_image(self, page_number: int) -> Path:
-    #     """
-    #     Render PDF page to image or return already rendered image from cache.
-
-    #     Args:
-    #         page_number (int): Page number to render.
-
-    #     Returns:
-    #         Path to rendered image.
-    #     """
-    #     if page_number in self.cached_page_images:
-    #         return self.cached_page_images[page_number]
-
-    #     if self.pdfix is None:
-    #         self.pdfix = GetPdfix()
-    #         if self.pdfix is None:
-    #             raise PdfixInitializeException()
-
-    #     if self.doc is None:
-    #         string_path: str = self.path.as_posix()
-    #         self.doc = self.pdfix.OpenDoc(string_path, "")
-    #         if self.doc is None:
-    #             raise PdfixFailedToOpenException(self.pdfix, string_path)
-
-    #     page_index: int = page_number - 1
-    #     page: Optional[PdfPage] = self.doc.AcquirePage(page_index)
-    #     if page is None:
-    #         raise PdfixFailedToRenderException(self.pdfix, "Failed to acquire the page")
-
-    #     page_view: Optional[PdfPageView] = page.AcquirePageView(1.0, kRotate0)
-    #     if page_view is None:
-    #         raise PdfixFailedToRenderException(self.pdfix, "Failed to acquire the page view")
-
-    #     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
-    #         render_page(self.pdfix, page, page_view, cast(BinaryIO, temp_file))
-
-    #         self.cached_page_images[page_number] = Path(temp_file.name)
-    #         return self.cached_page_images[page_number]
