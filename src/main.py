@@ -88,8 +88,6 @@ def set_arguments(
                 parser.add_argument("--name", type=str, default="", nargs="?", help="PDFix license name.")
             case "output":
                 parser.add_argument("--output", "-o", type=str, required=required_output, help=output_help)
-            case "per_page":
-                parser.add_argument("--per_page", type=str2bool, default=False, help="Process PDF page by page.")
             case "reading_order":
                 pdfix_explain: str = f"'{RD_PDFIX}' uses PDFix SDK reading order"
                 docling_explain: str = f"'{RD_DOCLING}' uses Docling post-processing reading order"
@@ -135,7 +133,6 @@ def run_autotag_subcommand(args) -> None:
         args.output,
         args.do_formula_recognition,
         args.do_image_description,
-        args.per_page,
         args.bbox_overlap,
         args.reading_order,
     )
@@ -148,7 +145,6 @@ def autotagging_pdf(
     output_path: str,
     do_formula_recognition: bool,
     do_image_description: bool,
-    per_page: bool,
     bbox_overlap: float,
     reading_order: str,
 ) -> None:
@@ -162,7 +158,6 @@ def autotagging_pdf(
         output_path (str): Path to PDF document.
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
-        per_page (bool): Process PDF page by page.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         reading_order (str): Reading order for the document.
     """
@@ -174,7 +169,6 @@ def autotagging_pdf(
             output_path,
             do_formula_recognition,
             do_image_description,
-            per_page,
             bbox_overlap,
             reading_order,
         )
@@ -191,7 +185,6 @@ def run_template_subcommand(args) -> None:
         args.output,
         args.do_formula_recognition,
         args.do_image_description,
-        args.per_page,
         args.bbox_overlap,
         args.reading_order,
     )
@@ -204,7 +197,6 @@ def create_template_json(
     output_path: str,
     do_formula_recognition: bool,
     do_image_description: bool,
-    per_page: bool,
     bbox_overlap: float,
     reading_order: str,
 ) -> None:
@@ -218,7 +210,6 @@ def create_template_json(
         output_path (str): Path to JSON file.
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
-        per_page (bool): Process PDF page by page.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         reading_order (str): Reading order for the document.
     """
@@ -230,7 +221,6 @@ def create_template_json(
             output_path,
             do_formula_recognition,
             do_image_description,
-            per_page,
             bbox_overlap,
             reading_order,
         )
@@ -273,7 +263,6 @@ def main() -> None:
             "output",
             "do_formula_recognition",
             "do_image_description",
-            "per_page",
             "bbox_overlap",
             "reading_order",
         ],
@@ -296,7 +285,6 @@ def main() -> None:
             "output",
             "do_formula_recognition",
             "do_image_description",
-            "per_page",
             "bbox_overlap",
             "reading_order",
         ],

@@ -44,7 +44,6 @@ class AutotagUsingDoclingLayoutRecognition:
         output_path: str,
         do_formula_recognition: bool,
         do_image_description: bool,
-        per_page: bool,
         bbox_overlap: float,
         reading_order: str,
     ) -> None:
@@ -58,7 +57,6 @@ class AutotagUsingDoclingLayoutRecognition:
             output_path (str): Path where tagged PDF should be saved.
             do_formula_recognition (bool): Do also formula recognition.
             do_image_description (bool): Do also image desrciption.
-            per_page (bool): Process PDF page by page.
             bbox_overlap (float): How much bounding box from docling must overlap with PDF element area.
             reading_order (str): Reading order for the document.
         """
@@ -68,7 +66,6 @@ class AutotagUsingDoclingLayoutRecognition:
         self.output_path_str: str = output_path
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
-        self.per_page: bool = per_page
         self.bbox_overlap: float = bbox_overlap
         self.reading_order: str = reading_order
 
@@ -92,10 +89,9 @@ class AutotagUsingDoclingLayoutRecognition:
             )
 
             progress_bar.update(PROGRESS_FIRST_STEP)
-            text: str = "Processing pages" if self.per_page else "Processing document"
-            progress_bar.set_description(text)
+            progress_bar.set_description("Processing document")
 
-            document: Optional[InternalDocument] = wrapper.process_pdf(self.per_page)
+            document: Optional[InternalDocument] = wrapper.process_pdf()
 
             if document is None:
                 return
