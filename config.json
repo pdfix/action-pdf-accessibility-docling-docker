@@ -14,7 +14,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -47,13 +47,6 @@
                     "value": false
                 },
                 {
-                    "title": "Per Page Processing",
-                    "name": "per_page",
-                    "desc": "Instead of processing whole document at once in Docling, process it page by page",
-                    "type": "bool",
-                    "value": false
-                },
-                {
                     "title": "BBox overlap ratio",
                     "name": "bbox_overlap",
                     "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
@@ -97,8 +90,7 @@
                 "24": "Failed to open PDF document.",
                 "25": "Failed to save PDF document.",
                 "26": "Failed to tag PDF document.",
-                "27": "Failed to create template JSON.",
-                "137": "Memory probably run out. Try using Per Page Processing."
+                "27": "Failed to create template JSON."
             },
             "progress_regex": "^(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%"
         },
@@ -115,7 +107,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --per_page \"${per_page}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -148,13 +140,6 @@
                     "value": false
                 },
                 {
-                    "title": "Per Page Processing",
-                    "name": "per_page",
-                    "desc": "Instead of processing whole document at once in Docling, process it page by page",
-                    "type": "bool",
-                    "value": false
-                },
-                {
                     "title": "BBox overlap ratio",
                     "name": "bbox_overlap",
                     "desc": "Controls how much a candidate bounding box must overlap with the initial element’s bounding box to be considered a child",
@@ -198,8 +183,7 @@
                 "24": "Failed to open PDF document.",
                 "25": "Failed to save PDF document.",
                 "26": "Failed to tag PDF document.",
-                "27": "Failed to create template JSON.",
-                "137": "Memory probably run out. Try using Per Page Processing."
+                "27": "Failed to create template JSON."
             },
             "progress_regex": "^(?<text>[^:]+):\\s+(?<progress>\\d{1,3})%"
         }
