@@ -83,4 +83,6 @@ class InternalDocument:
         Constructor.
         """
         self.pages: list[InternalPage] = []
+        # For docling reading order (does not have page by page structure)
+        self.ordered_elements: list[InternalElement] = []
         self.docling_version: str = ""

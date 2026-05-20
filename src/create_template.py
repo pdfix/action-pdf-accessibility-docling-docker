@@ -84,7 +84,11 @@ class CreateTemplateJsonUsingDocling:
             progress_bar.refresh()
 
             creator: TemplateJsonCreator = TemplateJsonCreator(
-                self.input_path_str, self.bbox_overlap, self.reading_order, progress_bar, PROGRESS_THIRD_STEP
+                self.input_path_str,
+                self.bbox_overlap,
+                self.reading_order,
+                progress_bar,
+                PROGRESS_THIRD_STEP,
             )
             json_dict: dict = creator.process_document(document)
 
