@@ -69,7 +69,7 @@ class DoclingTemplateJsonCreator(AbstractTemplateJsonCreator):
                             if page_view is None:
                                 pdf_page.Release()
                                 raise PdfixFailedToTagException(pdfix, "Failed to acquire the page view")
-                            page_height: float = pdf_page.height
+                            page_height: int = page_view.GetDeviceHeight()
                             page_cache[page_number] = (pdf_page, page_view, page_height)
 
                         _, page_view, page_height = page_cache[page_number]
