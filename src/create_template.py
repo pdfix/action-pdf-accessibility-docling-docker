@@ -83,6 +83,7 @@ class CreateTemplateJsonUsingDocling:
             progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
+            # Create template
             creator: TemplateJsonCreator = TemplateJsonCreator(
                 self.input_path_str,
                 self.bbox_overlap,
@@ -96,6 +97,7 @@ class CreateTemplateJsonUsingDocling:
             progress_bar.set_description("Saving template")
             progress_bar.refresh()
 
+            # Save template to file
             with open(self.output_path_str, "w") as f:
                 json.dump(json_dict, f, indent=2)
 

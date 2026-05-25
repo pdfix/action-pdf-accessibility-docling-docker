@@ -62,12 +62,26 @@ class TemplateJsonCreator:
         progress_bar: tqdm,
         total_progress_units: int,
     ) -> AbstractTemplateJsonCreator:
+        """
+        Create the implementation for the given reading order.
+
+        Args:
+            input_path_str (str): Path to the source PDF.
+            bbox_overlap (float): Overlap threshold for matching Docling boxes to PDF elements.
+            reading_order (str): Reading order mode (pdfix_rd, docling_rd, pdf_rd, or x_y_rd).
+            progress_bar (tqdm): Progress bar for template creation.
+            total_progress_units (int): Progress units allocated to template creation.
+        """
         if reading_order == RD_PDFIX:
             return PdfixTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+
         if reading_order == RD_DOCLING:
             return DoclingTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+
         if reading_order == RD_PDF:
             return PdfTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+
         if reading_order == RD_XY:
             return XYTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+
         return PdfixTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)

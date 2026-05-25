@@ -105,6 +105,16 @@ class AbstractTemplateJsonCreator(ABC):
         pass
 
     def _build_template_dict(self, document: InternalDocument, element_create: list) -> dict:
+        """
+        Build main template dictionary for template JSON.
+
+        Args:
+            document (InternalDocument): Internal representation of PDF document with Docling data.
+            element_create (list): List of element create blocks.
+
+        Returns:
+            Template dictionary for template JSON.
+        """
         return {
             "metadata": self._create_metadata(document),
             "template": {
@@ -114,8 +124,18 @@ class AbstractTemplateJsonCreator(ABC):
         }
 
     def _create_metadata(self, document: InternalDocument) -> dict:
+        """
+        Create metadata for template JSON.
+
+        Args:
+            document (InternalDocument): Internal representation of PDF document with Docling data.
+
+        Returns:
+            Metadata for template JSON.
+        """
         created_date: str = date.today().strftime("%Y-%m-%d")
         docker_image: str = f"{DOCKER_IMAGE}:{get_current_version()}"
+
         return {
             "author": "Generated using Docling Project AI",
             "created": created_date,
@@ -128,10 +148,23 @@ class AbstractTemplateJsonCreator(ABC):
     def _create_elements(
         self, element: InternalElement, page_view: PdfPageView, page_height: float, include_parent_key: bool
     ) -> list[dict]:
+        """
+        Create elements recursivelyfor template JSON.
+
+        Args:
+            element (InternalElement): Internal element to create elements for.
+            page_view (PdfPageView): PDFix page view to create elements for.
+            page_height (float): Height of the page to create elements for.
+            include_parent_key (bool): Whether to include parent key in the elements.
+
+        Returns:
+            List of elements for template JSON.
+        """
         results: list[dict] = []
         result: dict = {}
         results.append(result)
 
+        # Basic element data like name, bbox, comment, parent, etc.
         item: NodeItem = element.item
         element_ref: str = element.id()
         result["name"] = element_ref
@@ -146,23 +179,29 @@ class AbstractTemplateJsonCreator(ABC):
         if element.parent is not None and include_parent_key:
             result["parent"] = element.parent.id()
 
+        # Children of element (resursivity)
         children: list[dict] = []
 
         for child in element.children:
             place_element: Placement = Placement.UNDER
             if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
+                # remove parent from captions and use "caption" tag instead
                 place_element = Placement.BEFORE
                 if "parent" in result:
                     result.pop("parent", None)
                 result["caption"] = child.id()
             if isinstance(item, TableItem):
+                # Do not add anything under table
                 place_element = Placement.AFTER
             if isinstance(item, PictureItem):
+                # Under picture should not be any footnotes
                 if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.FOOTNOTE:
                     place_element = Placement.AFTER
 
+            # Create children elements
             children_result: list[dict] = self._create_elements(child, page_view, page_height, False)
 
+            # Place them properly
             if place_element == Placement.UNDER:
                 children.extend(children_result)
             elif place_element == Placement.BEFORE:
@@ -171,6 +210,7 @@ class AbstractTemplateJsonCreator(ABC):
             elif place_element == Placement.AFTER:
                 results.extend(children_result)
 
+        # Add children node to template
         if len(children) > 0:
             result["element_template"] = {
                 "template": {
@@ -179,6 +219,7 @@ class AbstractTemplateJsonCreator(ABC):
                 },
             }
 
+        # Add note to comment about hyperlinks
         if isinstance(item, TextItem):
             hyperlink: Optional[Union[AnyUrl, Path]] = item.hyperlink
             if isinstance(hyperlink, AnyUrl):
@@ -188,6 +229,7 @@ class AbstractTemplateJsonCreator(ABC):
             if item.text:
                 result["text"] = item.text
 
+        # Add note to comment about footnotes and captions
         if isinstance(item, FloatingItem):
             if len(item.footnotes) > 0:
                 footnotes: str = ", ".join([footnote.cref for footnote in item.footnotes])
@@ -196,10 +238,12 @@ class AbstractTemplateJsonCreator(ABC):
                 captions: str = ", ".join([caption.cref for caption in item.captions])
                 result["comment"] = f"{result['comment']} Captions: {captions}"
 
+        # Add default flags to element
         flag_list.append("no_join")
         flag_list.append("no_split")
         flag_list.append("no_expand")
 
+        # Process element according to its type
         if isinstance(item, TitleItem):
             result["tag"] = "Title"
             result["type"] = "pde_text"
@@ -311,6 +355,7 @@ class AbstractTemplateJsonCreator(ABC):
         elif isinstance(item, NodeItem):
             result["type"] = "pde_container"
 
+        # Write final flag to template json for element
         if len(flag_list) > 0:
             result["flag"] = "|".join(flag_list)
 
@@ -319,7 +364,19 @@ class AbstractTemplateJsonCreator(ABC):
     def _get_template_bbox(
         self, element: InternalElement, page_view: PdfPageView, page_height: float
     ) -> Optional[list[str]]:
+        """
+        Get bounding box for template JSON.
+
+        Args:
+            element (InternalElement): Internal element to get bounding box for.
+            page_view (PdfPageView): PDFix page view to get bounding box for.
+            page_height (float): Height of the page to get bounding box for.
+
+        Returns:
+            Bounding box for template JSON as list of strings or None.
+        """
         item: NodeItem = element.item
+
         if isinstance(item, DocItem):
             provenance: ProvenanceItem = item.prov[element.provenance_index]
             pdf_rect: PdfRect = convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
@@ -328,18 +385,51 @@ class AbstractTemplateJsonCreator(ABC):
         return None
 
     def _convert_pdfrect_to_list_str(self, pdf_rect: PdfRect) -> list[str]:
+        """
+        Convert PDF rectangle to list of strings.
+
+        Args:
+            pdf_rect (PdfRect): PDF rectangle to convert.
+
+        Returns:
+            List of strings representing the PDF rectangle.
+        """
         return [str(pdf_rect.left), str(pdf_rect.bottom), str(pdf_rect.right), str(pdf_rect.top)]
 
     def _get_label(self, element: InternalElement) -> str:
+        """
+        Get label for template JSON.
+
+        Args:
+            element (InternalElement): Internal element to get label for.
+
+        Returns:
+            Label for template JSON.
+        """
         item: NodeItem = element.item
+
         if isinstance(item, DocItem):
             return str(item.label)
+
         if isinstance(item, GroupItem):
             return str(item.label)
+
         return ""
 
     def _get_table_pdfrect(self, table_element: InternalElement, page_view: PdfPageView, page_height: float) -> PdfRect:
+        """
+        Get PDF rectangle for table.
+
+        Args:
+            table_element (InternalElement): Internal element to get PDF rectangle for.
+            page_view (PdfPageView): PDFix page view to get PDF rectangle for.
+            page_height (float): Height of the page to get PDF rectangle for.
+
+        Returns:
+            PDF rectangle for table.
+        """
         item: NodeItem = table_element.item
+
         if isinstance(item, DocItem):
             provenance: ProvenanceItem = item.prov[table_element.provenance_index]
             return convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
@@ -350,6 +440,19 @@ class AbstractTemplateJsonCreator(ABC):
     def _create_cells(
         self, table_pdfrect: PdfRect, table: TableData, page_view: PdfPageView, page_height: float, table_ref: str
     ) -> list:
+        """
+        Create cells for table.
+
+        Args:
+            table_pdfrect (PdfRect): Table's PDF rectangle.
+            table (TableData): Table data to create cells for.
+            page_view (PdfPageView): PDFix page view to create cells for.
+            page_height (float): Height of the page to create cells for.
+            table_ref (str): Table unique identifier.
+
+        Returns:
+            List of cells for table.
+        """
         cells: list = []
         table_cells: list[list[TableCell]] = table.grid
 
@@ -367,51 +470,94 @@ class AbstractTemplateJsonCreator(ABC):
                     "comment": f"Cell Pos: [{cell_row}, {cell_column}]",
                     "type": "pde_cell",
                 }
+
                 if regular_cell:
                     if cell.bbox:
                         pdf_rect: PdfRect = convert_bbox_to_pdfrect(cell.bbox, page_view, page_height)
                         cell_dict["bbox"] = self._convert_pdfrect_to_list_str(pdf_rect)
+
                     cell_dict["cell_header"] = self._convert_bool_to_str(cell.row_header or cell.column_header)
+
                     if cell_scope:
                         cell_dict["cell_scope"] = cell_scope
+
                     if cell.text:
                         cell_dict["text"] = cell.text
                 else:
                     cell_dict["cell_column_span"] = 0
                     cell_dict["cell_row_span"] = 0
+
                 cells.append(cell_dict)
 
         return cells
 
     def _get_cell_scope(self, cell: TableCell) -> str:
+        """
+        Convert cell data into cell scope string.
+
+        Args:
+            cell (TableCell): Table cell to get scope for.
+
+        Returns:
+            Cell scope for table.
+        """
         if cell.column_header and cell.row_header:
             return "both"
+
         elif cell.column_header:
             return "column"
+
         elif cell.row_header:
             return "row"
+
         return ""
 
     def _convert_bool_to_str(self, value: bool) -> str:
+        """
+        Convert boolean value to string.
+
+        Args:
+            value (bool): Boolean value to convert.
+
+        Returns:
+            String representation of the boolean value.
+        """
         return "true" if value else "false"
 
     def _get_list_type(self, item: ListItem) -> str:
+        """
+        Convert list item data into list type string.
+
+        Args:
+            item (ListItem): List item to convert.
+
+        Returns:
+            List type string.
+        """
         marker: str = item.marker.strip()
         stripped_marker: str = marker.lstrip("([").rstrip(")].:")
+
         if item.enumerated:
             if re.fullmatch(r"\d+", stripped_marker):
                 return "Decimal"
+
             if re.fullmatch(r"M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})", stripped_marker):
                 return "UpperRoman"
+
             if re.fullmatch(r"m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})", stripped_marker):
                 return "LowerRoman"
+
             if re.fullmatch(r"[A-Z]", stripped_marker):
                 return "UpperAlpha"
+
             if re.fullmatch(r"[a-z]", stripped_marker):
                 return "LowerAlpha"
+
             if len(marker) > 1:
                 return "Description"
+
             return "Ordered"
+
         else:
             disc_markers: list[str] = ["•", "●", "◉", "◌", "◍", "◎", "○", "·", "˚", "°", "∙"]
             square_markers: list[str] = ["▪", "▫", "■", "□", "▣", "▤", "▥", "▦", "▧", "▨", "▩"]
@@ -421,19 +567,35 @@ class AbstractTemplateJsonCreator(ABC):
 
             if marker == "":
                 return "None"
+
             if marker in disc_markers:
                 return "Disc"
+
             if marker in square_markers:
                 return "Square"
+
             if len(marker) > 1:
                 return "Description"
+
             if marker in arrows or marker in check_markers or marker in rest:
                 return "Unordered"
+
         return "None"
 
     def _calculate_bbox_from_children(
         self, children: list[InternalElement], page_view: PdfPageView, page_height: float
     ) -> list[str]:
+        """
+        Calculate bounding box from children.
+
+        Args:
+            children (list[InternalElement]): List of internal elements to calculate bounding box from.
+            page_view (PdfPageView): PDFix page view to calculate bounding box from.
+            page_height (float): Height of the page to calculate bounding box from.
+
+        Returns:
+            Bounding box for template JSON as list of strings.
+        """
         if len(children) == 0:
             return ["0", "0", "0", "0"]
 
@@ -463,12 +625,38 @@ class AbstractTemplateJsonCreator(ABC):
         return self._convert_pdfrect_to_list_str(result)
 
     def _postprocess_template_block(self, template_block: dict) -> dict:
+        """
+        If requested add rd_index to elements to keep existing reading order.
+
+        Args:
+            template_block (dict): Template block to postprocess.
+
+        Returns:
+            Postprocessed template block.
+        """
         if self.add_rd_indexes:
             return self._add_rd_indexes(template_block)
+
         return template_block
 
     def _add_rd_indexes(self, template_block: dict) -> dict:
+        """
+        Add rd_index to elements to keep existing reading order and do it recursively.
+
+        Args:
+            template_block (dict): Template block to add rd_index to.
+
+        Returns:
+            Template block with rd_index added to elements.
+        """
+
         def walk(node: Any) -> None:
+            """
+            Walk through the template block and add rd_index to elements.
+
+            Args:
+                node (Any): Node to walk through.
+            """
             if isinstance(node, dict):
                 elements = node.get("elements")
                 if isinstance(elements, list):
