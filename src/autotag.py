@@ -100,6 +100,7 @@ class AutotagUsingDoclingLayoutRecognition:
             progress_bar.set_description("Creating template")
             progress_bar.refresh()
 
+            # Create template
             creator: TemplateJsonCreator = TemplateJsonCreator(
                 self.input_path_str,
                 self.bbox_overlap,
@@ -135,12 +136,15 @@ class AutotagUsingDoclingLayoutRecognition:
             if doc is None:
                 raise PdfixFailedToOpenException(pdfix, self.input_path_str)
 
-            # Autotag document
-            self._autotag_using_template(doc, template_json_dict, pdfix)
+            try:
+                # Autotag document
+                self._autotag_using_template(doc, template_json_dict, pdfix)
 
-            # Save the processed document
-            if not doc.Save(self.output_path_str, kSaveFull):
-                raise PdfixFailedToSaveException(pdfix, self.output_path_str)
+                # Save the processed document
+                if not doc.Save(self.output_path_str, kSaveFull):
+                    raise PdfixFailedToSaveException(pdfix, self.output_path_str)
+            finally:
+                doc.Close()
 
             progress_bar.n = total_progress_count
             progress_bar.set_description("Done")

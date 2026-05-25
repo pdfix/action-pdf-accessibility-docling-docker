@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import sys
 import threading
@@ -18,7 +19,7 @@ from exceptions import (
 from image_update import DockerImageContainerUpdateChecker
 from logger import get_logger
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 def str2bool(value: Any) -> bool:

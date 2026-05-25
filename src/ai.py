@@ -11,12 +11,8 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import DoclingDocument
 from tqdm import tqdm
 
-from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, RD_DOCLING
-from docling_converter import (
-    ConvertToChapterStructure,
-    ConvertToPageStructure,
-    InternalDocumentConverter,
-)
+from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER
+from docling_converter import DoclingConverter
 from internal_classes import InternalDocument
 from logger import get_logger
 from utils import disable_additional_logging
@@ -96,7 +92,9 @@ class DoclingWrapper:
             return None
 
         # Convert Docling data into internal document
-        internal_converter: InternalDocumentConverter = self._create_internal_converter(result, convert_step_units)
+        internal_converter: DoclingConverter = DoclingConverter(
+            result, self.reading_order, self.progress_bar, convert_step_units
+        )
         internal_document: InternalDocument = internal_converter.convert()
         document: DoclingDocument = result.document
 
@@ -110,12 +108,3 @@ class DoclingWrapper:
 
         # Return internal document
         return internal_document
-
-    def _create_internal_converter(
-        self,
-        result: ConversionResult,
-        convert_step_units: float,
-    ) -> InternalDocumentConverter:
-        if self.reading_order == RD_DOCLING:
-            return ConvertToChapterStructure(result, self.progress_bar, convert_step_units)
-        return ConvertToPageStructure(result, self.progress_bar, convert_step_units)

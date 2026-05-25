@@ -39,30 +39,33 @@ class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
         if doc is None:
             raise PdfixFailedToOpenException(pdfix, self.input_path_str)
 
-        step: float = self.total_progress_units / len(document.pages)
-        template_json_pages: list = []
+        try:
+            step: float = self.total_progress_units / len(document.pages)
+            template_json_pages: list = []
 
-        for index, page in enumerate(document.pages):
-            pdf_page: Optional[PdfPage] = doc.AcquirePage(index)
-            if pdf_page is None:
-                raise PdfixFailedToTagException(pdfix, "Failed to acquire the page")
-
-            try:
-                page_view: Optional[PdfPageView] = pdf_page.AcquirePageView(ZOOM, 0)
-                if page_view is None:
-                    raise PdfixFailedToTagException(pdfix, "Failed to acquire the page view")
+            for index, page in enumerate(document.pages):
+                pdf_page: Optional[PdfPage] = doc.AcquirePage(index)
+                if pdf_page is None:
+                    raise PdfixFailedToTagException(pdfix, "Failed to acquire the page")
 
                 try:
-                    page_dict: dict = self._process_page(page, page_view)
-                    page_dict = self._postprocess_template_block(page_dict)
-                    template_json_pages.append(page_dict)
-                    self.progress_bar.update(step)
-                finally:
-                    page_view.Release()
-            finally:
-                pdf_page.Release()
+                    page_view: Optional[PdfPageView] = pdf_page.AcquirePageView(ZOOM, 0)
+                    if page_view is None:
+                        raise PdfixFailedToTagException(pdfix, "Failed to acquire the page view")
 
-        return template_json_pages
+                    try:
+                        page_dict: dict = self._process_page(page, page_view)
+                        page_dict = self._postprocess_template_block(page_dict)
+                        template_json_pages.append(page_dict)
+                        self.progress_bar.update(step)
+                    finally:
+                        page_view.Release()
+                finally:
+                    pdf_page.Release()
+
+            return template_json_pages
+        finally:
+            doc.Close()
 
     def _process_page(self, page: InternalPage, page_view: PdfPageView) -> dict:
         page_elements: list = self._create_page(page, page_view)
