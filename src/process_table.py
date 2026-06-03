@@ -95,10 +95,10 @@ class DoclingPostProcessingTable:
         Returns:
             For each cell bounding box of the text in the cell.
         """
-        bboxes: list[list[PdfRect]] = []
+        bboxes: list[list[Optional[PdfRect]]] = []
 
         for row in self.table_cells:
-            row_bboxes: list[PdfRect] = []
+            row_bboxes: list[Optional[PdfRect]] = []
             for cell in row:
                 if cell.bbox:
                     cell_bbox: PdfRect = convert_bbox_to_pdfrect(cell.bbox, self.page_view, self.page_height)

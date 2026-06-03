@@ -167,7 +167,9 @@ class AutotagUsingDoclingLayoutRecognition:
             if not memory_stream.Write(0, raw_data, raw_data_size):
                 raise PdfixFailedToTagException(pdfix, "Failed to write template data into memory")
 
-            doc_template: PdfDocTemplate = doc.GetTemplate()
+            doc_template: Optional[PdfDocTemplate] = doc.GetTemplate()
+            if doc_template is None:
+                raise PdfixFailedToTagException(pdfix, "Failed to get document template")
             if not doc_template.LoadFromStream(memory_stream, kDataFormatJson):
                 raise PdfixFailedToTagException(pdfix, "Failed to save template into document")
         except Exception:
