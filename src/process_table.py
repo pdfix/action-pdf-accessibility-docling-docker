@@ -123,7 +123,7 @@ class DoclingPostProcessingTable:
             Each column line value.
         """
         # Initialize empty list with zeros for each column line
-        vertical_lines: list[list[int]] = [[] for i in range(self.cols + 1)]
+        vertical_lines: list[list[float]] = [[] for i in range(self.cols + 1)]
 
         # Table borders
         vertical_lines[0].append(self.table_bbox.left)
@@ -180,7 +180,7 @@ class DoclingPostProcessingTable:
             Each row line value.
         """
         # Initialize empty list with zeros for each row line
-        horizontal_lines: list[list[int]] = [[] for i in range(self.rows + 1)]
+        horizontal_lines: list[list[float]] = [[] for i in range(self.rows + 1)]
 
         # Table borders
         horizontal_lines[0].append(self.table_bbox.top)
