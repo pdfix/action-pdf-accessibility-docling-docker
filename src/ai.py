@@ -130,6 +130,10 @@ class DoclingWrapper:
             pipeline_options.do_formula_enrichment = self.do_formula_recognition
             pipeline_options.do_picture_description = self.do_image_description
 
+            if self.do_image_description:
+                # Overwrite default 0.05 value for 5% of the page area
+                pipeline_options.picture_description_options.picture_area_threshold = 0.0
+
             converter: DocumentConverter = DocumentConverter(
                 format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
             )
@@ -254,6 +258,10 @@ class DoclingWrapper:
 
                     pipeline_options.do_formula_enrichment = self.do_formula_recognition
                     pipeline_options.do_picture_description = self.do_image_description
+
+                    if self.do_image_description:
+                        # Overwrite default 0.05 value for 5% of the page area
+                        pipeline_options.picture_description_options.picture_area_threshold = 0.0
 
                     converter: DocumentConverter = DocumentConverter(
                         format_options={InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options)}
