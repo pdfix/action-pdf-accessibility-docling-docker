@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import Optional  # BinaryIO, cast
 
 import pypdfium2 as pdfium
-import torch
 
 # from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.document import ConversionResult
 from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.settings import settings
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import (
     # BoundingBox,
@@ -26,7 +26,6 @@ from docling_core.types.doc import (
 )
 from PIL import Image
 from tqdm import tqdm
-from transformers.utils import logging as transformers_logging
 
 # from pdfixsdk import (
 #     GetPdfix,
@@ -41,6 +40,7 @@ from transformers.utils import logging as transformers_logging
 from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, ZOOM
 from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
+from utils import disable_additional_logging
 
 # from page_renderer import crop_image, render_page
 
@@ -82,15 +82,8 @@ class DoclingWrapper:
         # self.doc: Optional[PdfDoc] = None
         # self.cell_images: list[Path] = []
 
-        # Disable warnings about NNPACK unsupported hardware when running in docker image
-        torch.backends.nnpack.set_flags(False)
-
-        # Disable RapidOCR logging
-        logging.getLogger("RapidOCR").disabled = True
-
-        # Docling pulls in Hugging Face deps (transformers / huggingface_hub) which can emit their own tqdm bars
-        # (notably: "Loading weights"). Disable those so only our own progress bar is shown.
-        transformers_logging.disable_progress_bar()
+        # Disable unwanted log messages
+        disable_additional_logging()
 
     def process_pdf(self, per_page: bool) -> Optional[InternalDocument]:
         """
@@ -129,6 +122,7 @@ class DoclingWrapper:
 
             pipeline_options.do_formula_enrichment = self.do_formula_recognition
             pipeline_options.do_picture_description = self.do_image_description
+            pipeline_options.artifacts_path = settings.cache_dir.joinpath("models")
 
             if self.do_image_description:
                 # Overwrite default 0.05 value for 5% of the page area
@@ -258,6 +252,7 @@ class DoclingWrapper:
 
                     pipeline_options.do_formula_enrichment = self.do_formula_recognition
                     pipeline_options.do_picture_description = self.do_image_description
+                    pipeline_options.artifacts_path = settings.cache_dir.joinpath("models")
 
                     if self.do_image_description:
                         # Overwrite default 0.05 value for 5% of the page area

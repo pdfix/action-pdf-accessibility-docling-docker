@@ -28,9 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt && rm -rf /root/.cache/pip
 # # no longer run inside container as layer gets too big
 # # Copy script to download models into container and run it
 COPY download_models.py /usr/docling/
-COPY example example
 RUN venv/bin/python3 download_models.py
-RUN rm -rf example
 
 # Copy models data that we moved from original snapshot location
 # COPY rapidocr_models/ /usr/docling/venv/lib/python3.12/site-packages/rapidocr/models/

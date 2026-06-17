@@ -6,6 +6,9 @@ from typing import Any
 
 import latex2mathml.converter
 
+# import torch
+from transformers.utils import logging as transformers_logging
+
 from constants import CONFIG_FILE
 from logger import get_logger
 
@@ -43,6 +46,29 @@ def convert_to_base64(data: str) -> str:
     """
     data_bytes: bytes = data.encode("utf-8")
     return base64.b64encode(data_bytes).decode("utf-8")
+
+
+def disable_additional_logging() -> None:
+    """
+    Disable additional logging.
+    """
+    # Disable warnings about NNPACK unsupported hardware when running in docker image
+    # torch.backends.nnpack.set_flags(False)
+
+    # Disable RapidOCR logging
+    logging.getLogger("RapidOCR").disabled = True
+
+    # Docling pulls in Hugging Face deps (transformers / huggingface_hub) which can emit their own tqdm bars
+    # (notably: "Loading weights"). Disable those so only our own progress bar is shown.
+    transformers_logging.disable_progress_bar()
+
+    # Disable Hugging Face logging about:
+    # Passing `generation_config` together with generation-related arguments...
+    transformers_logging.set_verbosity_error()
+
+    # Disable Hugging Face logging about:
+    # Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable ...
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 
 def get_current_version() -> str:

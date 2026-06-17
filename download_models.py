@@ -1,5 +1,4 @@
-from docling.document_converter import DocumentConverter
+from docling.utils.model_downloader import download_models
 
-converter: DocumentConverter = DocumentConverter()
-# This downloads necessary AI models
-converter.convert("example/AutoTag_Sample.pdf")
+# Pre-download all models used at runtime, including VLM models for formula/image enrichment.
+download_models(with_smolvlm=True)
