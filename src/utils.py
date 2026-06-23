@@ -86,3 +86,22 @@ def get_current_version() -> str:
     except (FileNotFoundError, json.JSONDecodeError) as e:
         logger.error(f"Error reading {CONFIG_FILE}: {e}")
         return "unknown"
+
+
+def clean_image_alternate_text_end(text: str) -> str:
+    """
+    Clean the end of the image alternate text. SmolVLM has ending token "<end_of_utterance>"
+    and sometimes part of that text is included at the end of the alternate text.
+
+    Args:
+        text (str): SmolVLM image alternate text.
+
+    Returns:
+        The cleaned text.
+    """
+    end_token: str = "<end_of_utterance>"
+    for length in range(len(end_token), 0, -1):
+        short_end_token: str = end_token[:length]
+        if text.endswith(short_end_token):
+            return text[: -len(short_end_token)]
+    return text

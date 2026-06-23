@@ -40,7 +40,7 @@ from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, Pd
 from logger import get_logger
 
 # from process_table import DoclingPostProcessingTable
-from utils import convert_latex_to_mathml, convert_to_base64, get_current_version
+from utils import clean_image_alternate_text_end, convert_latex_to_mathml, convert_to_base64, get_current_version
 from utils_sdk import convert_bbox_to_pdfrect
 
 logger: logging.Logger = get_logger()
@@ -379,6 +379,7 @@ class TemplateJsonCreator:
             ):
                 # Figure alt text
                 alt_text: str = item.annotations[0].text
+                alt_text = clean_image_alternate_text_end(alt_text)
                 result["alt"] = alt_text
             result["type"] = "pde_image"
         elif isinstance(item, TableItem):
