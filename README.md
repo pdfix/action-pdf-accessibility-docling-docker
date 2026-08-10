@@ -77,3 +77,4 @@ For PDFix SDK licensing or issues, contact `support@pdfix.net`.
 
 - [PDFix Terms](https://pdfix.net/terms)
 - [Docling](https://docling-project.github.io/docling/) — [MIT License](https://github.com/docling-project/docling/blob/main/LICENSE)
+

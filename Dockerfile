@@ -16,14 +16,12 @@ RUN apt-get update && \
 
 WORKDIR /usr/docling/
 
-
 # Create a virtual environment and install dependencies
 ENV VIRTUAL_ENV=venv
 RUN python3 -m venv venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 COPY requirements.txt /usr/docling/
 RUN pip install --no-cache-dir -r requirements.txt && rm -rf /root/.cache/pip
-
 
 # # no longer run inside container as layer gets too big
 # # Copy script to download models into container and run it
@@ -33,19 +31,15 @@ RUN venv/bin/python3 download_models.py
 # Copy models data that we moved from original snapshot location
 # COPY rapidocr_models/ /usr/docling/venv/lib/python3.12/site-packages/rapidocr/models/
 
-
 # Copy config.json and the source code
 COPY config.json /usr/docling/
 COPY src/ /usr/docling/src/
 
-
 # Add data folder into image
 RUN mkdir -p /data
 
-
-# # License
+# License
 COPY THIRD_PARTY_LICENSES.md /THIRD_PARTY_LICENSES.md
 LABEL license="https://pdfix.net/terms (PDFix SDK) and MIT License (Docling by IBM Research Zurich)"
-
 
 ENTRYPOINT ["/usr/docling/venv/bin/python3", "/usr/docling/src/main.py"]
