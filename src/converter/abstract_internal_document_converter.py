@@ -12,7 +12,7 @@ from docling_core.types.doc import (
 )
 from tqdm import tqdm
 
-from internal_classes import InternalDocument, InternalElement
+from internal_classes import InternalDocument, InternalElement, InternalPage
 from logger import get_logger
 
 logger: logging.Logger = get_logger()
@@ -48,6 +48,30 @@ class AbstractInternalDocumentConverter(ABC):
             Internal representation of the PDF document.
         """
         pass
+
+    def _create_pages(self, document: DoclingDocument, progress_step: float) -> list[InternalPage]:
+        """
+        Create pages from DoclingDocument.
+
+        Args:
+            document (DoclingDocument): Document to create pages from.
+            progress_step (float): Step to update progress bar.
+
+        Returns:
+            List of created pages.
+        """
+        pages: list[InternalPage] = []
+
+        for page in document.pages.values():
+            internal_page: InternalPage = InternalPage()
+            internal_page.number = page.page_no
+            internal_page.height = page.size.height
+            internal_page.width = page.size.width
+            pages.append(internal_page)
+
+            self.progress_bar.update(progress_step)
+
+        return pages
 
     def _create_elements(
         self, document: DoclingDocument, item: NodeItem, parent: Optional[InternalElement]

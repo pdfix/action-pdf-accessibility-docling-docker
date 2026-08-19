@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from constants import RD_DOCLING
 from converter.abstract_internal_document_converter import AbstractInternalDocumentConverter
-from converter.convert_to_chapter_structure import ConvertToChapterStructure
+from converter.convert_to_chapter_page_structure import ConvertToChapterPageStructure
 from converter.convert_to_page_structure import ConvertToPageStructure
 from internal_classes import InternalDocument
 from logger import get_logger
@@ -71,6 +71,6 @@ class DoclingConverter:
             convert_step_units (float): Total progress units allocated to conversion.
         """
         if reading_order == RD_DOCLING:
-            return ConvertToChapterStructure(result, progress_bar, convert_step_units)
+            return ConvertToChapterPageStructure(result, progress_bar, convert_step_units)
 
         return ConvertToPageStructure(result, progress_bar, convert_step_units)

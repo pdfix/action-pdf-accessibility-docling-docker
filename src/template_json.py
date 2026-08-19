@@ -3,7 +3,7 @@ from tqdm import tqdm
 from constants import RD_DOCLING, RD_PDF, RD_PDFIX, RD_XY
 from internal_classes import InternalDocument
 from template.abstract_template_json_creator import AbstractTemplateJsonCreator, Placement
-from template.docling_template_json_creator import DoclingTemplateJsonCreator
+from template.docling_page_template_json_creator import DoclingPageTemplateJsonCreator
 from template.pdf_template_json_creator import PdfTemplateJsonCreator
 from template.pdfix_template_json_creator import PdfixTemplateJsonCreator
 from template.xy_template_json_creator import XYTemplateJsonCreator
@@ -76,7 +76,7 @@ class TemplateJsonCreator:
             return PdfixTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
 
         if reading_order == RD_DOCLING:
-            return DoclingTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+            return DoclingPageTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)
 
         if reading_order == RD_PDF:
             return PdfTemplateJsonCreator(input_path_str, bbox_overlap, progress_bar, total_progress_units)

@@ -4,7 +4,7 @@ from typing import Optional
 from docling_core.types.doc import DoclingDocument, NodeItem
 
 from converter.abstract_internal_document_converter import AbstractInternalDocumentConverter
-from internal_classes import InternalDocument, InternalElement, InternalPage
+from internal_classes import InternalDocument, InternalElement
 from logger import get_logger
 
 logger: logging.Logger = get_logger()
@@ -38,30 +38,6 @@ class ConvertToPageStructure(AbstractInternalDocumentConverter):
         self._add_elements(document, internal_document, progress_step)
 
         return internal_document
-
-    def _create_pages(self, document: DoclingDocument, progress_step: float) -> list[InternalPage]:
-        """
-        Create pages from DoclingDocument.
-
-        Args:
-            document (DoclingDocument): Document to create pages from.
-            bar_step (float): Step to update progress bar.
-
-        Returns:
-            List of created pages.
-        """
-        pages: list[InternalPage] = []
-
-        for page in document.pages.values():
-            internal_page: InternalPage = InternalPage()
-            internal_page.number = page.page_no
-            internal_page.height = page.size.height
-            internal_page.width = page.size.width
-            pages.append(internal_page)
-
-            self.progress_bar.update(progress_step)
-
-        return pages
 
     def _add_elements(
         self, document: DoclingDocument, internal_document: InternalDocument, progress_step: float
