@@ -99,6 +99,8 @@ class AbstractInternalDocumentConverter(ABC):
                 internal_element.page_number = provenances[index].page_no
                 if index > 0:
                     internal_element.continuous_element = internal_elements[0]
+                    internal_element.is_continuous = True
+                    internal_elements[0].is_continuous = True
                 internal_elements.append(internal_element)
             internal_element = internal_elements[0]
         elif isinstance(item, GroupItem):
@@ -138,6 +140,8 @@ class AbstractInternalDocumentConverter(ABC):
                     new_element.page_number = page_number
                     new_element.children.extend(child_list)
                     new_element.continuous_element = internal_element
+                    new_element.is_continuous = True
+                    internal_element.is_continuous = True
                     internal_elements.append(new_element)
 
         return internal_elements

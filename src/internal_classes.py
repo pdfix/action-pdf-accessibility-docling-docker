@@ -29,6 +29,8 @@ class InternalElement:
         self.page_number: int = -1
         self.parent: Optional["InternalElement"] = parent
         self.continuous_element: Optional["InternalElement"] = None
+        # True also for the first element of a continuous chain, which has no continuous_element reference
+        self.is_continuous: bool = False
 
     def id(self) -> str:
         """
@@ -58,9 +60,12 @@ class InternalElement:
             type_str = str(self.item.label)
         item_str: str = f"Item '{self.id()}' ({type_str})"  # [{str(self.item.content_layer)}]"
         parent_str: str = f"Parent '{self.parent.id()}'" if self.parent is not None else "'No parent'"
-        continuous_str: str = (
-            f"Continuous '{self.continuous_element.id()}'" if self.continuous_element is not None else "'No continuous'"
-        )
+        if self.continuous_element is not None:
+            continuous_str: str = f"Continuous '{self.continuous_element.id()}'"
+        elif self.is_continuous:
+            continuous_str = "'Continuous first'"
+        else:
+            continuous_str = "'No continuous'"
         data_str: str = f"{offset}{item_str} {parent_str} {continuous_str} Provenance Index: {self.provenance_index}"
         data_str += f" Page: {self.page_number}"
         if len(self.children) > 0:

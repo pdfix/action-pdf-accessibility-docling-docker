@@ -169,7 +169,7 @@ class AbstractTemplateJsonCreator(ABC):
         element_ref: str = element.id()
         result["name"] = element_ref
         flag_list: list[str] = []
-        if element.continuous_element is not None:
+        if element.is_continuous or element.continuous_element is not None:
             flag_list.append("continuous")
         bbox_list: Optional[list[str]] = self._get_template_bbox(element, page_view, page_height)
         if bbox_list is not None:

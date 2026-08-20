@@ -137,6 +137,8 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
 
             if len(copies) > 0:
                 element_copy.continuous_element = copies[0]
+                element_copy.is_continuous = True
+                copies[0].is_continuous = True
 
             copies.append(element_copy)
 
