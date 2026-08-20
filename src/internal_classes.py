@@ -1,10 +1,24 @@
+from enum import Enum
 from typing import Optional
 
 from docling_core.types.doc import (
     DocItem,
+    DocItemLabel,
     GroupItem,
+    GroupLabel,
     NodeItem,
+    TextItem,
 )
+
+
+class InternalElementGroup(Enum):
+    """
+    Semantic group created by this project rather than supplied by Docling.
+    """
+
+    NONE = "none"
+    HEADER = "header"
+    FOOTER = "footer"
 
 
 class InternalElement:
@@ -15,19 +29,26 @@ class InternalElement:
     Contains also information if this is continuous structure and has reference to first structure.
     """
 
-    def __init__(self, item: NodeItem, parent: Optional["InternalElement"]) -> None:
+    def __init__(
+        self,
+        item: NodeItem,
+        parent: Optional["InternalElement"],
+        group: InternalElementGroup = InternalElementGroup.NONE,
+    ) -> None:
         """
         Constructor.
 
         Args:
             item (NodeItem): Reference to Docling Data.
             parent (Optional[InternalElement]): None or already created element.
+            group (InternalElementGroup): Project-created semantic group, if any.
         """
         self.item: NodeItem = item
         self.provenance_index: int = -1
         self.children: list["InternalElement"] = []
         self.page_number: int = -1
         self.parent: Optional["InternalElement"] = parent
+        self.group: InternalElementGroup = group
         self.continuous_element: Optional["InternalElement"] = None
         # True also for the first element of a continuous chain, which has no continuous_element reference
         self.is_continuous: bool = False
@@ -54,7 +75,9 @@ class InternalElement:
         """
         offset: str = "    " * level
         type_str: str = "Unknown"
-        if isinstance(self.item, DocItem):
+        if self.group != InternalElementGroup.NONE:
+            type_str = self.group.value
+        elif isinstance(self.item, DocItem):
             type_str = str(self.item.label)
         elif isinstance(self.item, GroupItem):
             type_str = str(self.item.label)
@@ -107,6 +130,83 @@ class InternalPage:
             data_str += "\n" + element.debug_info(level + 1)
         return data_str
 
+    def group_headers_and_footers(self) -> None:
+        """
+        Move every page header and footer out of the page hierarchy and into one semantic group per type.
+
+        The header group is placed first and the footer group last. Relative order among extracted elements and
+        among body elements is preserved.
+        """
+        headers: list[InternalElement] = []
+        footers: list[InternalElement] = []
+
+        body_elements: list[InternalElement] = self._extract_group_elements(
+            self.ordered_elements,
+            InternalElementGroup.HEADER,
+            DocItemLabel.PAGE_HEADER,
+            headers,
+        )
+        body_elements = self._extract_group_elements(
+            body_elements,
+            InternalElementGroup.FOOTER,
+            DocItemLabel.PAGE_FOOTER,
+            footers,
+        )
+
+        grouped_elements: list[InternalElement] = []
+        if len(headers) > 0:
+            grouped_elements.append(self._create_furniture_group(InternalElementGroup.HEADER, headers))
+
+        grouped_elements.extend(body_elements)
+
+        if len(footers) > 0:
+            grouped_elements.append(self._create_furniture_group(InternalElementGroup.FOOTER, footers))
+
+        self.ordered_elements = grouped_elements
+
+    def _extract_group_elements(
+        self,
+        elements: list[InternalElement],
+        group: InternalElementGroup,
+        label: DocItemLabel,
+        extracted: list[InternalElement],
+    ) -> list[InternalElement]:
+        """
+        Remove matching elements recursively and append them to extracted in reading order.
+        """
+        remaining: list[InternalElement] = []
+
+        for element in elements:
+            if element.group == group:
+                extracted.extend(element.children)
+                continue
+
+            if isinstance(element.item, TextItem) and element.item.label == label:
+                extracted.append(element)
+                continue
+
+            element.children = self._extract_group_elements(element.children, group, label, extracted)
+            remaining.append(element)
+
+        return remaining
+
+    def _create_furniture_group(self, group: InternalElementGroup, children: list[InternalElement]) -> InternalElement:
+        """
+        Create a project-owned header or footer group with the extracted elements as children.
+        """
+        group_item: GroupItem = GroupItem(
+            label=GroupLabel.UNSPECIFIED,
+            name=f"page_{group.value}",
+            self_ref=f"#/page-{group.value}-group-{self.number}",
+        )
+        group_element: InternalElement = InternalElement(group_item, None, group)
+
+        for child in children:
+            child.parent = group_element
+            group_element.children.append(child)
+
+        return group_element
+
 
 class InternalDocument:
     """
@@ -137,3 +237,10 @@ class InternalDocument:
         for element in self.ordered_elements:
             data_str += element.debug_info(1) + "\n"
         return data_str
+
+    def group_page_headers_and_footers(self) -> None:
+        """
+        Group and position headers and footers independently on every page.
+        """
+        for page in self.pages:
+            page.group_headers_and_footers()

@@ -4,7 +4,7 @@ from pdfixsdk import GetPdfix, PdfDoc, Pdfix, PdfPage, PdfPageView
 
 from constants import ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
-from internal_classes import InternalDocument, InternalElement, InternalPage
+from internal_classes import InternalDocument, InternalElement, InternalElementGroup, InternalPage
 from template.abstract_template_json_creator import AbstractTemplateJsonCreator
 
 
@@ -83,10 +83,30 @@ class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
         results: list = []
         page_h: float = page.height
 
-        for element in self._get_page_elements(page):
+        for element in self._get_ordered_page_elements(page):
             results.extend(self._create_elements(element, page_view, page_h, False))
 
         return results
+
+    def _get_ordered_page_elements(self, page: InternalPage) -> list[InternalElement]:
+        """
+        Apply the selected reading order while keeping page furniture at the template boundaries.
+
+        Args:
+            page (InternalPage): Page whose elements should be ordered.
+
+        Returns:
+            Ordered elements with a header group first and footer group last when present.
+        """
+        elements: list[InternalElement] = self._get_page_elements(page)
+        headers: list[InternalElement] = [
+            element for element in elements if element.group == InternalElementGroup.HEADER
+        ]
+        body: list[InternalElement] = [element for element in elements if element.group == InternalElementGroup.NONE]
+        footers: list[InternalElement] = [
+            element for element in elements if element.group == InternalElementGroup.FOOTER
+        ]
+        return headers + body + footers
 
     def _get_page_elements(self, page: InternalPage) -> list[InternalElement]:
         return page.ordered_elements

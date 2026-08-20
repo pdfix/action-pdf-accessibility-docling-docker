@@ -51,6 +51,7 @@ class DoclingConverter:
             Internal representation of the PDF document.
         """
         document: InternalDocument = self._converter.convert()
+        document.group_page_headers_and_footers()
         logger.info(document.debug_info())
         return document
 

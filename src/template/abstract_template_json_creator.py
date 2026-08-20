@@ -36,7 +36,7 @@ from pydantic import AnyUrl
 from tqdm import tqdm
 
 from constants import DOCKER_IMAGE
-from internal_classes import InternalDocument, InternalElement
+from internal_classes import InternalDocument, InternalElement, InternalElementGroup
 from logger import get_logger
 from utils import clean_image_alternate_text_end, convert_latex_to_mathml, convert_to_base64, get_current_version
 from utils_sdk import convert_bbox_to_pdfrect
@@ -238,13 +238,20 @@ class AbstractTemplateJsonCreator(ABC):
                 captions: str = ", ".join([caption.cref for caption in item.captions])
                 result["comment"] = f"{result['comment']} Captions: {captions}"
 
-        # Add default flags to element
-        flag_list.append("no_join")
-        flag_list.append("no_split")
-        flag_list.append("no_expand")
+        # Add default flags to regular elements. Furniture groups are page-level artifacts and keep only that flag.
+        if element.group == InternalElementGroup.NONE:
+            flag_list.append("no_join")
+            flag_list.append("no_split")
+            flag_list.append("no_expand")
 
         # Process element according to its type
-        if isinstance(item, TitleItem):
+        if element.group == InternalElementGroup.HEADER:
+            flag_list.append("artifact")
+            result["type"] = "pde_header"
+        elif element.group == InternalElementGroup.FOOTER:
+            flag_list.append("artifact")
+            result["type"] = "pde_footer"
+        elif isinstance(item, TitleItem):
             result["tag"] = "Title"
             result["type"] = "pde_text"
         elif isinstance(item, SectionHeaderItem):
