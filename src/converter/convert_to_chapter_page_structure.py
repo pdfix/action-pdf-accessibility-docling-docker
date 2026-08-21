@@ -43,6 +43,10 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
         elements: list[InternalElement] = self._create_root_list(document)
         self.progress_bar.update(bar_step)
 
+        internal_document.ordered_elements = elements
+        self._dump_docling_hierarchy(internal_document)
+        internal_document.ordered_elements = []
+
         # Filter out elements without page number and join continuous elements together in the whole tree, so each
         # Docling item is present exactly once before it is split by pages again
         joined_elements: list[InternalElement] = self._join_and_filter_tree(elements)

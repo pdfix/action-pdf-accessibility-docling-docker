@@ -40,6 +40,9 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
         elements: list[InternalElement] = self._create_root_list(document)
         self.progress_bar.update(bar_step)
 
+        internal_document.ordered_elements = elements
+        self._dump_docling_hierarchy(internal_document)
+
         # Filter out elements without page number and join continuous elements together
         filtered_elements: list[InternalElement] = self._join_and_filter_elements(elements)
         self.progress_bar.update(bar_step)

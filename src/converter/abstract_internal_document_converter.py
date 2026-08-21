@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional
 
 from docling.datamodel.document import ConversionResult
@@ -38,6 +39,20 @@ class AbstractInternalDocumentConverter(ABC):
         self.result: ConversionResult = result
         self.progress_bar: tqdm = progress_bar
         self.convert_step_units: float = convert_step_units
+
+    def _dump_docling_hierarchy(self, internal_document: InternalDocument) -> None:
+        """
+        Write InternalDocument.debug_info() into outputs-docling-hierarchy/<pdf-stem>.log.
+
+        Args:
+            internal_document (InternalDocument): Internal representation to dump.
+        """
+        outputs_folder: Path = Path(__file__).resolve().parent.parent.parent.joinpath("outputs-docling-hierarchy")
+        outputs_folder.mkdir(exist_ok=True)
+        pdf_stem: str = Path(self.result.input.file).stem
+        log_path: Path = outputs_folder.joinpath(f"{pdf_stem}.log")
+        with open(log_path, "w", encoding="utf-8") as file:
+            file.write(internal_document.debug_info())
 
     @abstractmethod
     def convert(self) -> InternalDocument:
