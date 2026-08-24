@@ -50,8 +50,7 @@ class AbstractInternalDocumentConverter(ABC):
         Args:
             internal_document (InternalDocument): Internal representation to dump.
         """
-        outputs_folder: Path = Path("/data")
-        # Path(__file__).resolve().parent.parent.parent.joinpath("outputs-docling-hierarchy")
+        outputs_folder: Path = Path(__file__).resolve().parent.parent.parent.joinpath("outputs-docling-hierarchy")
         outputs_folder.mkdir(exist_ok=True)
         log_path: Path = outputs_folder.joinpath(f"{self.path.stem}.log")
         with open(log_path, "w", encoding="utf-8") as file:
