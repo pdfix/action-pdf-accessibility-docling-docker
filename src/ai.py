@@ -93,7 +93,7 @@ class DoclingWrapper:
 
         # Convert Docling data into internal document
         internal_converter: DoclingConverter = DoclingConverter(
-            result, self.reading_order, self.progress_bar, convert_step_units
+            result, self.reading_order, self.path, self.progress_bar, convert_step_units
         )
         internal_document: InternalDocument = internal_converter.convert()
         document: DoclingDocument = result.document

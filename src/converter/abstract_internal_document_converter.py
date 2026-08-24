@@ -27,16 +27,19 @@ class AbstractInternalDocumentConverter(ABC):
     def __init__(
         self,
         result: ConversionResult,
+        path: Path,
         progress_bar: tqdm,
         convert_step_units: float,
     ) -> None:
         """
         Args:
             result (ConversionResult): Result from Docling conversion.
+            path (Path): Path to the PDF file.
             progress_bar (tqdm): Progress bar to update during conversion.
             convert_step_units (float): Total progress units allocated to conversion.
         """
         self.result: ConversionResult = result
+        self.path: Path = path
         self.progress_bar: tqdm = progress_bar
         self.convert_step_units: float = convert_step_units
 
@@ -49,8 +52,7 @@ class AbstractInternalDocumentConverter(ABC):
         """
         outputs_folder: Path = Path(__file__).resolve().parent.parent.parent.joinpath("outputs-docling-hierarchy")
         outputs_folder.mkdir(exist_ok=True)
-        pdf_stem: str = Path(self.result.input.file).stem
-        log_path: Path = outputs_folder.joinpath(f"{pdf_stem}.log")
+        log_path: Path = outputs_folder.joinpath(f"{self.path.stem}.log")
         with open(log_path, "w", encoding="utf-8") as file:
             file.write(internal_document.debug_info())
 

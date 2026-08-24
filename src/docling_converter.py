@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from docling.datamodel.document import ConversionResult
 from tqdm import tqdm
@@ -24,6 +25,7 @@ class DoclingConverter:
         self,
         result: ConversionResult,
         reading_order: str,
+        path: Path,
         progress_bar: tqdm,
         convert_step_units: float,
     ) -> None:
@@ -33,12 +35,14 @@ class DoclingConverter:
         Args:
             result (ConversionResult): Result from Docling conversion.
             reading_order (str): Reading order mode (docling_rd or other page-based modes).
+            path: Path to the PDF file.
             progress_bar (tqdm): Progress bar to update during conversion.
             convert_step_units (float): Total progress units allocated to conversion.
         """
         self._converter: AbstractInternalDocumentConverter = self._create_implementation(
             result,
             reading_order,
+            path,
             progress_bar,
             convert_step_units,
         )
@@ -59,6 +63,7 @@ class DoclingConverter:
     def _create_implementation(
         result: ConversionResult,
         reading_order: str,
+        path: Path,
         progress_bar: tqdm,
         convert_step_units: float,
     ) -> AbstractInternalDocumentConverter:
@@ -68,10 +73,11 @@ class DoclingConverter:
         Args:
             result (ConversionResult): Result from Docling conversion.
             reading_order (str): Reading order mode (docling_rd or other page-based modes).
+            path: Path to the PDF file.
             progress_bar (tqdm): Progress bar to update during conversion.
             convert_step_units (float): Total progress units allocated to conversion.
         """
         if reading_order == RD_DOCLING:
-            return ConvertToChapterPageStructure(result, progress_bar, convert_step_units)
+            return ConvertToChapterPageStructure(result, path, progress_bar, convert_step_units)
 
-        return ConvertToPageStructure(result, progress_bar, convert_step_units)
+        return ConvertToPageStructure(result, path, progress_bar, convert_step_units)
