@@ -185,15 +185,20 @@ class AbstractTemplateJsonCreator(ABC):
         for child in element.children:
             place_element: Placement = Placement.UNDER
             if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
-                # remove parent from captions and use "caption" tag instead
-                place_element = Placement.BEFORE
-                if "parent" in result:
-                    result.pop("parent", None)
-                result["caption"] = child.id()
-            if isinstance(item, TableItem):
+                # Above / ambiguous → caption-first (PDFix `caption` key). Clearly below → sibling after.
+                place_element = (
+                    Placement.AFTER
+                    if self._is_caption_after(child, element, page_view, page_height)
+                    else Placement.BEFORE
+                )
+                if place_element == Placement.BEFORE:
+                    if "parent" in result:
+                        result.pop("parent", None)
+                    result["caption"] = child.id()
+            elif isinstance(item, TableItem):
                 # Do not add anything under table
                 place_element = Placement.AFTER
-            if isinstance(item, PictureItem):
+            elif isinstance(item, PictureItem):
                 # Under picture should not be any footnotes
                 if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.FOOTNOTE:
                     place_element = Placement.AFTER
@@ -368,6 +373,35 @@ class AbstractTemplateJsonCreator(ABC):
             result["flag"] = "|".join(flag_list)
 
         return results
+
+    def _is_caption_after(
+        self,
+        caption: InternalElement,
+        parent: InternalElement,
+        page_view: PdfPageView,
+        page_height: float,
+    ) -> bool:
+        """
+        True only when caption bbox is clearly below parent bbox (PDF Y). Missing/overlap → False.
+
+        Args:
+            caption (InternalElement): Caption child.
+            parent (InternalElement): Table/picture (or other) that owns the caption.
+            page_view (PdfPageView): PDFix page view for bbox conversion.
+            page_height (float): Page height for bbox conversion.
+
+        Returns:
+            True if caption is after (below) parent; False otherwise (use BEFORE default).
+        """
+        parent_bbox: Optional[list[str]] = self._get_template_bbox(parent, page_view, page_height)
+        caption_bbox: Optional[list[str]] = self._get_template_bbox(caption, page_view, page_height)
+        if parent_bbox is None or caption_bbox is None:
+            return False
+
+        # Template bbox: [left, bottom, right, top] in PDF coords (Y up). Below → smaller Y.
+        parent_bottom: float = float(parent_bbox[1])
+        caption_top: float = float(caption_bbox[3])
+        return caption_top <= parent_bottom
 
     def _get_template_bbox(
         self, element: InternalElement, page_view: PdfPageView, page_height: float
