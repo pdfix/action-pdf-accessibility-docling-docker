@@ -1,5 +1,8 @@
+from typing import Optional
+
 import tqdm
-from docling_core.types.doc import CoordOrigin, DocItem
+from docling_core.types.doc import CoordOrigin, DocItem, ListGroup
+from pdfixsdk import PdfPageView
 
 from internal_classes import InternalElement, InternalPage
 from template.page_template_json_creator import PageTemplateJsonCreator
@@ -21,6 +24,21 @@ class XYTemplateJsonCreator(PageTemplateJsonCreator):
     def _get_page_elements(self, page: InternalPage) -> list[InternalElement]:
         return sorted(page.ordered_elements, key=lambda element: self._element_bbox_sort_key(element, page.height))
 
+    def _get_template_bbox(
+        self, element: InternalElement, page_view: PdfPageView, page_height: float
+    ) -> Optional[list[str]]:
+        bbox_list: Optional[list[str]] = super()._get_template_bbox(element, page_view, page_height)
+        if bbox_list is not None:
+            return bbox_list
+
+        # ListGroup has no Docling provenance; derive bbox from list items for x_y rd_sort.
+        if isinstance(element.item, ListGroup) and element.children:
+            calculated: list[str] = self._calculate_bbox_from_children(element.children, page_view, page_height)
+            if calculated != ["0", "0", "0", "0"]:
+                return calculated
+
+        return None
+
     def _element_bbox_sort_key(self, element: InternalElement, page_height: float) -> tuple[float, float]:
         item = element.item
         if isinstance(item, DocItem) and item.prov:
@@ -29,4 +47,15 @@ class XYTemplateJsonCreator(PageTemplateJsonCreator):
             if bbox.coord_origin != CoordOrigin.TOPLEFT:
                 bbox = bbox.to_top_left_origin(page_height)
             return (bbox.t, bbox.l)
+
+        # ListGroup (and similar) without own bbox: use top-left of children so x_y sort
+        # does not push the group to the end of the page.
+        child_keys: list[tuple[float, float]] = []
+        for child in element.children:
+            child_key = self._element_bbox_sort_key(child, page_height)
+            if child_key != (float("inf"), float("inf")):
+                child_keys.append(child_key)
+        if child_keys:
+            return min(child_keys)
+
         return (float("inf"), float("inf"))
