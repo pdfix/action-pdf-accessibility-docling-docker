@@ -63,8 +63,7 @@ Create a layout template JSON:
 
 ```bash
 docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:latest \
-  template --name "${LICENSE_NAME}" --key "${LICENSE_KEY}" \
-  -i /data/input.pdf -o /data/output.json
+  template -i /data/input.pdf -o /data/output.json
 ```
 
 ## Model
