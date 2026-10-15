@@ -6,4 +6,4 @@ pdfix-sdk==8.8.0
 transformers==5.16.1
 torch==2.13.0
 types-requests==2.33.0.20260408
-urllib3==2.7.0
+urllib3==2.8.0
