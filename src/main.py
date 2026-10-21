@@ -62,7 +62,7 @@ def set_arguments(
             case "bbox_overlap":
                 bbox_help: str = (
                     "Controls how much a candidate bounding box must overlap"
-                    + "with the initial element's bounding box to be considered a child."
+                    + " with the initial element's bounding box to be considered a child."
                 )
                 parser.add_argument(
                     "--bbox_overlap",

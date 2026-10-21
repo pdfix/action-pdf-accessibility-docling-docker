@@ -94,7 +94,7 @@ class InternalElement:
         if len(self.children) > 0:
             data_str += " Children:"
             for child in self.children:
-                data_str += "\n" + child.debug_info(level + 1)
+                data_str += f"\n{child.debug_info(level + 1)}"
         else:
             data_str += " 'No children'"
         return data_str
@@ -127,7 +127,7 @@ class InternalPage:
         offset: str = "    " * level
         data_str: str = f"{offset}Page {self.number} Height: {self.height} Width: {self.width} Elements:"
         for element in self.ordered_elements:
-            data_str += "\n" + element.debug_info(level + 1)
+            data_str += f"\n{element.debug_info(level + 1)}"
         return data_str
 
     def group_headers_and_footers(self) -> None:
@@ -232,10 +232,10 @@ class InternalDocument:
         data_str: str = f"Docling Version: {self.docling_version}\n"
         data_str += "Pages:\n"
         for page in self.pages:
-            data_str += page.debug_info(1) + "\n"
+            data_str += f"{page.debug_info(1)}\n"
         data_str += "Ordered Elements:\n"
         for element in self.ordered_elements:
-            data_str += element.debug_info(1) + "\n"
+            data_str += f"{element.debug_info(1)}\n"
         return data_str
 
     def group_page_headers_and_footers(self) -> None:
