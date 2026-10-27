@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import latex2mathml.converter
-
-# import torch
 from transformers.utils import logging as transformers_logging
 
 from constants import CONFIG_FILE
@@ -52,23 +50,22 @@ def disable_additional_logging() -> None:
     """
     Disable additional logging.
     """
-    # Disable warnings about NNPACK unsupported hardware when running in docker image
-    # torch.backends.nnpack.set_flags(False)
-
-    # Disable RapidOCR logging
+    # Disable RapidOCR logging about:
+    # [RapidOCR] main.py:164: The text detection result is empty
     logging.getLogger("RapidOCR").disabled = True
+
+    # Disable Docling logging about:
+    # RapidOCR returned empty result!
+    logging.getLogger("docling.models.stages.ocr.rapid_ocr_model").setLevel(logging.ERROR)
 
     # Docling pulls in Hugging Face deps (transformers / huggingface_hub) which can emit their own tqdm bars
     # (notably: "Loading weights"). Disable those so only our own progress bar is shown.
     transformers_logging.disable_progress_bar()
 
-    # Disable Hugging Face logging about:
-    # Passing `generation_config` together with generation-related arguments...
+    # Disable Hugging Face logging when loading CodeFormulaV2 (formula recognition) about:
+    # Model config: pad_token_id must be `None` or an integer within the vocabulary ...
+    # The tied weights mapping and config for this model specifies to tie ... so we will NOT tie them ...
     transformers_logging.set_verbosity_error()
-
-    # Disable Hugging Face logging about:
-    # Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable ...
-    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 
 def get_current_version() -> str:
