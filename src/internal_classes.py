@@ -1,4 +1,5 @@
 from enum import Enum
+from importlib.metadata import version
 from typing import Optional
 
 from docling_core.types.doc import (
@@ -220,7 +221,8 @@ class InternalDocument:
         self.pages: list[InternalPage] = []
         # For docling reading order (does not have page by page structure)
         self.ordered_elements: list[InternalElement] = []
-        self.docling_version: str = ""
+        # Version of the installed docling package (DoclingDocument.version is only its schema version)
+        self.docling_version: str = version("docling")
 
     def debug_info(self) -> str:
         """

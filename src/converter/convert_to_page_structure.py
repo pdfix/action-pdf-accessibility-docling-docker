@@ -28,7 +28,6 @@ class ConvertToPageStructure(AbstractInternalDocumentConverter):
 
         # Create return object
         internal_document: InternalDocument = InternalDocument()
-        internal_document.docling_version = document.version
         self.progress_bar.update(progress_step)
 
         # Add pages
@@ -62,6 +61,6 @@ class ConvertToPageStructure(AbstractInternalDocumentConverter):
                 if 0 <= page_index < len(internal_document.pages):
                     internal_document.pages[page_index].ordered_elements.append(element)
                 else:
-                    logger.error(f"Cannot add element: {element.id()} to page_index: {page_index}")
+                    logger.warning(f"Cannot add element: {element.id()} to page_index: {page_index}")
 
             self.progress_bar.update(progress_step)

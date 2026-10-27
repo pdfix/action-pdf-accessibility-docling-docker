@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from autotag import AutotagUsingDoclingLayoutRecognition
-from constants import CONFIG_FILE, RD_DOCLING, RD_PDF, RD_PDFIX, RD_XY
+from constants import CONFIG_FILE, RD_DOCLING, RD_PDF, RD_PDFIX, RD_XY, RENDER_HYBRID
 from create_template import CreateTemplateJsonUsingDocling
 from exceptions import (
     EC_ARG_GENERAL,
@@ -162,6 +162,7 @@ def autotagging_pdf(
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         reading_order (str): Reading order for the document.
     """
+    render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
             license_name,
@@ -172,6 +173,7 @@ def autotagging_pdf(
             do_image_description,
             bbox_overlap,
             reading_order,
+            render,
         )
         autotag.process_file()
     else:
@@ -214,6 +216,7 @@ def create_template_json(
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         reading_order (str): Reading order for the document.
     """
+    render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
         template_creator = CreateTemplateJsonUsingDocling(
             license_name,
@@ -224,6 +227,7 @@ def create_template_json(
             do_image_description,
             bbox_overlap,
             reading_order,
+            render,
         )
         template_creator.process_file()
     else:

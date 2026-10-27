@@ -36,7 +36,6 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
 
         # Return object
         internal_document: InternalDocument = InternalDocument()
-        internal_document.docling_version = document.version
         internal_document.pages = self._create_pages(document, bar_step)
 
         # Transform Docling data into internal data structure
@@ -96,7 +95,7 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
                 if 0 <= page_index < len(internal_document.pages):
                     internal_document.pages[page_index].ordered_elements.append(page_element)
                 else:
-                    logger.error(f"Cannot add element: {page_element.id()} to page_index: {page_index}")
+                    logger.warning(f"Cannot add element: {page_element.id()} to page_index: {page_index}")
 
     def _split_element_by_pages(self, element: InternalElement) -> list[InternalElement]:
         """

@@ -29,6 +29,7 @@ class CreateTemplateJsonUsingDocling:
         do_image_description: bool,
         bbox_overlap: float,
         reading_order: str,
+        render: str,
     ) -> None:
         """
         Initialize class for tagging pdf(s).
@@ -42,6 +43,7 @@ class CreateTemplateJsonUsingDocling:
             do_image_description (bool): Do also image desrciption.
             bbox_overlap (float): How much bounding box from docling must overlap with PDF element area.
             reading_order (str): Reading order for the document.
+            render (str): How Docling renders page images for layout detection.
         """
         self.license_name: Optional[str] = license_name
         self.license_key: Optional[str] = license_key
@@ -51,6 +53,7 @@ class CreateTemplateJsonUsingDocling:
         self.do_image_description: bool = do_image_description
         self.bbox_overlap: float = bbox_overlap
         self.reading_order: str = reading_order
+        self.render: str = render
 
     def process_file(self) -> None:
         """
@@ -67,6 +70,7 @@ class CreateTemplateJsonUsingDocling:
                 self.do_formula_recognition,
                 self.do_image_description,
                 self.reading_order,
+                self.render,
                 progress_bar,
                 PROGRESS_SECOND_STEP,
             )

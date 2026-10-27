@@ -11,8 +11,9 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import DoclingDocument
 from tqdm import tqdm
 
-from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER
+from constants import PERCENT_AI, PERCENT_CONVERT, PERCENT_RENDER, RENDER_HYBRID
 from docling_converter import DoclingConverter
+from hybrid_backend import HybridDocumentBackend
 from internal_classes import InternalDocument
 from logger import get_logger
 from utils import disable_additional_logging
@@ -31,6 +32,7 @@ class DoclingWrapper:
         do_formula_recognition: bool,
         do_image_description: bool,
         reading_order: str,
+        render: str,
         progress_bar: tqdm,
         progress_units_total: int,
     ) -> None:
@@ -42,6 +44,7 @@ class DoclingWrapper:
             do_formula_recognition (bool): If formulas are post-processed by Docling to create LaTeX representations.
             do_image_description (bool): If pictures are post-processed by Docling to create image descriptions.
             reading_order (str): Reading order for the document.
+            render (str): How Docling renders page images for layout detection (RENDER_DEFAULT or RENDER_HYBRID).
             progress_bar (tqdm): Progress bar to update during processing.
             progress_units_total (int): Total number of units for progress bar for processing.
         """
@@ -49,6 +52,7 @@ class DoclingWrapper:
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
         self.reading_order: str = reading_order
+        self.render: str = render
         self.progress_bar: tqdm = progress_bar
         self.progress_units_total: int = progress_units_total
 
@@ -80,9 +84,12 @@ class DoclingWrapper:
                 # Overwrite default 0.05 value for 5% of the page area
                 pipeline_options.picture_description_options.picture_area_threshold = 0.0
 
-            converter: DocumentConverter = DocumentConverter(
-                format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
-            )
+            format_option: PdfFormatOption = PdfFormatOption(pipeline_options=pipeline_options)
+            if self.render == RENDER_HYBRID:
+                # Layout model detects lists, forms and tables better on page images rendered by pypdfium
+                format_option = PdfFormatOption(pipeline_options=pipeline_options, backend=HybridDocumentBackend)
+
+            converter: DocumentConverter = DocumentConverter(format_options={InputFormat.PDF: format_option})
             result: ConversionResult = converter.convert(self.path)
 
             self.progress_bar.update(docling_step_units)

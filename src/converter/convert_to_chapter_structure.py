@@ -34,7 +34,6 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
 
         # Return object
         internal_document: InternalDocument = InternalDocument()
-        internal_document.docling_version = document.version
 
         # Transform Docling data into internal data structure
         elements: list[InternalElement] = self._create_root_list(document)
