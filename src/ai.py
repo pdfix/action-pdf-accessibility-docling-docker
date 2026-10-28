@@ -76,6 +76,10 @@ class DoclingWrapper:
             pipeline_options.do_ocr = True
             pipeline_options.do_table_structure = True
 
+            # Section header levels from PDF bookmarks, numbering and font style (style needs the parsed pages)
+            pipeline_options.heading_hierarchy_options.enabled = True
+            pipeline_options.generate_parsed_pages = True
+
             pipeline_options.do_formula_enrichment = self.do_formula_recognition
             pipeline_options.do_picture_description = self.do_image_description
             pipeline_options.artifacts_path = settings.cache_dir.joinpath("models")
