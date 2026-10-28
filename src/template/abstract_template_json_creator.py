@@ -202,6 +202,11 @@ class AbstractTemplateJsonCreator(ABC):
                 # Under picture should not be any footnotes
                 if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.FOOTNOTE:
                     place_element = Placement.AFTER
+                else:
+                    # Other texts under picture are mostly its labels (chart axes, legend, ...). There is a small chance
+                    # they are useful, but mostly they are not and only mess up the whole autotagging. They are part
+                    # of the picture which is described by its alternate text.
+                    continue
 
             # Create children elements
             children_result: list[dict] = self._create_elements(child, page_view, page_height, False)
