@@ -48,6 +48,7 @@ class Placement(Enum):
     UNDER = "under"  # default
     BEFORE = "before"
     AFTER = "after"
+    SKIP = "skip"
 
 
 class AbstractTemplateJsonCreator(ABC):
@@ -206,7 +207,11 @@ class AbstractTemplateJsonCreator(ABC):
                     # Other texts under picture are mostly its labels (chart axes, legend, ...). There is a small chance
                     # they are useful, but mostly they are not and only mess up the whole autotagging. They are part
                     # of the picture which is described by its alternate text.
-                    continue
+                    place_element = Placement.SKIP
+
+            # We do not want this child in template JSON
+            if place_element == Placement.SKIP:
+                continue
 
             # Create children elements
             children_result: list[dict] = self._create_elements(child, page_view, page_height, False)
