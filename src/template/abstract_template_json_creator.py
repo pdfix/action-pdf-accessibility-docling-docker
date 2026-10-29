@@ -47,52 +47,11 @@ logger: logging.Logger = get_logger()
 
 
 class Placement(Enum):
-    UNDER = "under"  # default
+    UNDER = "under"  # default behaviour (children are put under the parent)
     BEFORE = "before"
     AFTER = "after"
     SKIP = "skip"
     TABLE = "table"  # Content of rich table cell, placed into its cell by _create_cells
-
-
-# Children of table cell (TD/TH) according to ISO/TS 32005 Table 5 (PDF 1.7 and PDF 2.0 namespaces, checked by
-# veraPDF). ISO 32000-1 has no such rules (its Annex L are colour plates) and PDF/UA-1 does not check TD content.
-# Allowed: P, H (at most one), H1-H6, L, Lbl, Div, Sect, Art, Table (complete Table -> TR -> TD), Figure, Formula, Form,
-# Note (PDF 1.7) / FENote (PDF 2.0), Index, BibEntry, Reference, Code, Span, Link, Annot, Quote, Em, Strong, Ruby,
-# Warichu.
-# Forbidden: TR, TD, TH, THead, TBody, TFoot, LI, LBody, Document, DocumentFragment, Part, Title, Caption, BlockQuote,
-# Aside, Sub, TOC, TOCI, RB, RT, RP, WT, WP.
-CELL_FORBIDDEN_TAGS: set[str] = {
-    "TR",
-    "TD",
-    "TH",
-    "THead",
-    "TBody",
-    "TFoot",
-    "LI",
-    "LBody",
-    "Document",
-    "DocumentFragment",
-    "Part",
-    "Title",
-    "Caption",
-    "BlockQuote",
-    "Aside",
-    "Sub",
-    "TOC",
-    "TOCI",
-    "RB",
-    "RT",
-    "RP",
-    "WT",
-    "WP",
-}
-# Forbidden tags whose text is still a regular cell content, they become P
-CELL_TAGS_TO_P: set[str] = {"Caption", "Title"}
-# TODO(SDK): PDFix SDK allows only pde_text under pde_cell, other types fail whole tagging with error 70 (template node
-# has an invalid or missing parent) even when PDF specification allows them under TD. Until it is fixed in SDK these
-# elements are disabled and SDK puts their content into the cell itself (images become Figure, texts become P).
-# Remove type from this set once SDK supports it under pde_cell.
-CELL_SDK_DISABLED_TYPES: set[str] = {"pde_container", "pde_image", "pde_list", "pde_table"}
 
 
 class AbstractTemplateJsonCreator(ABC):
@@ -194,7 +153,7 @@ class AbstractTemplateJsonCreator(ABC):
         self, element: InternalElement, page_view: PdfPageView, page_height: float, include_parent_key: bool
     ) -> list[dict]:
         """
-        Create elements recursivelyfor template JSON.
+        Create elements recursively for template JSON.
 
         Args:
             element (InternalElement): Internal element to create elements for.
@@ -224,27 +183,27 @@ class AbstractTemplateJsonCreator(ABC):
         if element.parent is not None and include_parent_key:
             result["parent"] = element.parent.id()
 
-        self._check_rich_cell_content_parent(element)
-
         # Rich table cells reference their content (group) which docling puts under the table
         rich_cell_refs: set[str] = set()
         if isinstance(item, TableItem):
             rich_cell_refs = {cell.ref.cref for cell in item.data.table_cells if isinstance(cell, RichTableCell)}
         table_rich_cells: dict[str, InternalElement] = {}
 
-        # Children of element (resursivity)
+        # Children of element (recursivity)
         children: list[dict] = []
 
         for child in element.children:
+            # First set default behaviour
             place_element: Placement = Placement.UNDER
+
             if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.CAPTION:
-                # Above / ambiguous → caption-first (PDFix `caption` key). Clearly below → sibling after.
                 place_element = (
                     Placement.AFTER
                     if self._is_caption_after(child, element, page_view, page_height)
                     else Placement.BEFORE
                 )
                 if place_element == Placement.BEFORE:
+                    # TODO not sure this does what was ment by it (probably we want to remove parent ref from child)
                     if "parent" in result:
                         result.pop("parent", None)
                     result["caption"] = child.id()
@@ -254,6 +213,7 @@ class AbstractTemplateJsonCreator(ABC):
                 else:
                     # Do not add anything under table
                     place_element = Placement.AFTER
+                    # Sanity check that anything under table in Docling is either used in rich cells or is caption
                     if not isinstance(child.item, TextItem):
                         logger.warning(f"Table {element_ref} child {child.id()} is not content of any rich cell.")
             elif isinstance(item, PictureItem):
@@ -636,21 +596,42 @@ class AbstractTemplateJsonCreator(ABC):
         results: list[dict] = []
 
         for content in contents:
+            # Create element for layout template and go through each record what can stay
             for result in self._create_elements(content, page_view, page_height, False):
-                tag: Optional[str] = result.get("tag")
-                flags: list[str] = result.get("flag", "").split("|")
-                if tag in CELL_TAGS_TO_P:
+                comment: str = result["comment"]
+                type: str = result["type"]
+                tag: str = result.get("tag", "")
+                flags: str = result.get("flag", "")
+
+                # Children of table cell (TD/TH) according to ISO/TS 32005 Table 5 (PDF 1.7 and PDF 2.0 namespaces,
+                # checked by veraPDF). ISO 32000-1 has no such rules (its Annex L are colour plates) and PDF/UA-1
+                # does not check TD content.
+                # Forbidden: TR, TD, TH, THead, TBody, TFoot, LI, LBody, Document, DocumentFragment, Part, Title,
+                # Caption, BlockQuote, Aside, Sub, TOC, TOCI, RB, RT, RP, WT, WP.
+
+                # These are forbidden under TD but as P they can be present.
+                if tag in {"Caption", "Title"}:
+                    # Converted to P by removing specifying tag
                     result.pop("tag")
-                elif tag in CELL_FORBIDDEN_TAGS or "header" in flags or "footer" in flags:
-                    skipped: str = f"{result['name']} ({tag or result['type']})"
-                    logger.warning(f"{cell_name}: skipped element {skipped}, it can not be under TD.")
+                # Furniture (header, footer not allowed under TD)
+                elif type in {"pde_header", "pde_footer"} or (
+                    type == "pde_text" and ("header" in flags or "footer" in flags)
+                ):
+                    logger.warning(f"{cell_name}: skipped element {comment}, it can not be under pde_cell.")
+                    # Not added
                     continue
-                elif result["type"] in ("pde_header", "pde_footer"):
-                    logger.warning(f"{cell_name}: skipped element {result['name']} ({result['type']}).")
-                    continue
-                elif result["type"] in CELL_SDK_DISABLED_TYPES:
-                    # TODO(SDK): see CELL_SDK_DISABLED_TYPES (form fields are pde_container and stay disabled for now)
+                # PDFix SDK allows only pde_text under pde_cell, other types fail whole tagging with error 70 (template
+                # node has an invalid or missing parent) even when PDF specification allows them under TD. Until it is
+                # fixed in SDK these elements are disabled and SDK puts their content into the cell itself
+                # (images become Figure, texts become P).
+                elif type in {"pde_container", "pde_image", "pde_list", "pde_table"}:
+                    # Added as disabled atm
                     result["disable"] = True
+
+                # Allowed: P, H (at most one), H1-H6, L, Lbl, Div, Sect, Art, Table (complete Table -> TR -> TD),
+                # Figure, Formula, Form, Note (PDF 1.7) / FENote (PDF 2.0), Index, BibEntry, Reference, Code, Span,
+                # Link, Annot, Quote, Em, Strong, Ruby, Warichu.
+
                 results.append(result)
 
         return results
@@ -671,21 +652,6 @@ class AbstractTemplateJsonCreator(ABC):
                 "pagemap": self.page_map_settings,
             },
         }
-
-    def _check_rich_cell_content_parent(self, element: InternalElement) -> None:
-        """
-        Content of rich table cell (group or form field) has table as its parent in Docling data. If it is not under
-        its table also in internal representation it can not be placed into its cell, that is probably Docling bug.
-
-        Args:
-            element (InternalElement): Internal element to check.
-        """
-        item: NodeItem = element.item
-        if isinstance(item, TextItem) or item.parent is None or not item.parent.cref.startswith("#/tables/"):
-            return
-
-        if element.parent is None or element.parent.item.self_ref != item.parent.cref:
-            logger.warning(f"Element {element.id()} is not under its table {item.parent.cref}.")
 
     def _get_cell_scope(self, cell: TableCell) -> str:
         """
