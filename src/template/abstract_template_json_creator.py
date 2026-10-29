@@ -203,9 +203,6 @@ class AbstractTemplateJsonCreator(ABC):
                     else Placement.BEFORE
                 )
                 if place_element == Placement.BEFORE:
-                    # TODO not sure this does what was ment by it (probably we want to remove parent ref from child)
-                    if "parent" in result:
-                        result.pop("parent", None)
                     result["caption"] = child.id()
             elif isinstance(item, TableItem):
                 if child.item.self_ref in rich_cell_refs:
@@ -599,7 +596,7 @@ class AbstractTemplateJsonCreator(ABC):
             # Create element for layout template and go through each record what can stay
             for result in self._create_elements(content, page_view, page_height, False):
                 comment: str = result["comment"]
-                type: str = result["type"]
+                element_type: str = result["type"]
                 tag: str = result.get("tag", "")
                 flags: str = result.get("flag", "")
 
@@ -614,8 +611,8 @@ class AbstractTemplateJsonCreator(ABC):
                     # Converted to P by removing specifying tag
                     result.pop("tag")
                 # Furniture (header, footer not allowed under TD)
-                elif type in {"pde_header", "pde_footer"} or (
-                    type == "pde_text" and ("header" in flags or "footer" in flags)
+                elif element_type in {"pde_header", "pde_footer"} or (
+                    element_type == "pde_text" and ("header" in flags or "footer" in flags)
                 ):
                     logger.warning(f"{cell_name}: skipped element {comment}, it can not be under pde_cell.")
                     # Not added
@@ -624,7 +621,7 @@ class AbstractTemplateJsonCreator(ABC):
                 # node has an invalid or missing parent) even when PDF specification allows them under TD. Until it is
                 # fixed in SDK these elements are disabled and SDK puts their content into the cell itself
                 # (images become Figure, texts become P).
-                elif type in {"pde_container", "pde_image", "pde_list", "pde_table"}:
+                elif element_type in {"pde_container", "pde_image", "pde_list", "pde_table"}:
                     # Added as disabled atm
                     result["disable"] = True
 
