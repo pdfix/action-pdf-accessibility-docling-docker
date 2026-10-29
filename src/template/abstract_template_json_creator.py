@@ -13,6 +13,10 @@ from docling_core.types.doc import (
     DescriptionAnnotation,
     DocItem,
     DocItemLabel,
+    FieldHeadingItem,
+    FieldItem,
+    FieldRegionItem,
+    FieldValueItem,
     FloatingItem,
     FormItem,
     FormulaItem,
@@ -222,6 +226,11 @@ class AbstractTemplateJsonCreator(ABC):
                     # they are useful, but mostly they are not and only mess up the whole autotagging. They are part
                     # of the picture which is described by its alternate text.
                     place_element = Placement.SKIP
+            elif isinstance(item, FieldItem):
+                # Fillable value is the widget itself (same bbox). SDK tags every widget as Form with OBJR on its own
+                # and puts it into the element whose bbox covers it, so the widget lands in this field item.
+                if isinstance(child.item, FieldValueItem) and child.item.kind == "fillable":
+                    place_element = Placement.SKIP
 
             # We do not want this child in template JSON
             if place_element == Placement.SKIP:
@@ -283,7 +292,7 @@ class AbstractTemplateJsonCreator(ABC):
         elif isinstance(item, TitleItem):
             result["tag"] = "Title"
             result["type"] = "pde_text"
-        elif isinstance(item, SectionHeaderItem):
+        elif isinstance(item, (SectionHeaderItem, FieldHeadingItem)):
             level: int = item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
             result["heading"] = f"h{level}"
@@ -312,9 +321,11 @@ class AbstractTemplateJsonCreator(ABC):
                 case DocItemLabel.CAPTION:
                     result["tag"] = "Caption"
                 case DocItemLabel.CHECKBOX_SELECTED:
-                    pass
+                    # TODO(SDK): printed checkbox should be Form with PrintField attribute (Role=cb, Checked=on)
+                    result["actual_text"] = self._get_checkbox_actual_text(item.text, True)
                 case DocItemLabel.CHECKBOX_UNSELECTED:
-                    pass
+                    # TODO(SDK): printed checkbox should be Form with PrintField attribute (Role=cb, Checked=off)
+                    result["actual_text"] = self._get_checkbox_actual_text(item.text, False)
                 case DocItemLabel.FOOTNOTE:
                     result["tag"] = "Note"
                 case DocItemLabel.PAGE_FOOTER:
@@ -382,6 +393,16 @@ class AbstractTemplateJsonCreator(ABC):
                 case _:
                     result["tag"] = "NonStruct"
             result["type"] = "pde_container"
+        elif isinstance(item, FieldRegionItem):
+            # Form area with interactive form fields, SDK tags their widgets on its own. SDK makes Figure from graphics
+            # inside container (field box borders), but without container it creates its own form tables.
+            result["type"] = "pde_container"
+        elif isinstance(item, FieldItem):
+            # One interactive form field: its key and hint as P and the widget tagged by SDK as Form. SDK fills widget
+            # /TU (tooltip read by screen readers) only from text within 4 points, Docling knowledge (key, value, hint)
+            # is in the comment for now.
+            result["comment"] = f"{result['comment']} {self._get_field_info(element)}"
+            result["type"] = "pde_container"
         elif isinstance(item, FloatingItem):
             result["type"] = "pde_container"
         elif isinstance(item, DocItem):
@@ -440,10 +461,14 @@ class AbstractTemplateJsonCreator(ABC):
         """
         item: NodeItem = element.item
 
-        if isinstance(item, DocItem):
+        if isinstance(item, DocItem) and len(item.prov) > 0:
             provenance: ProvenanceItem = item.prov[element.provenance_index]
             pdf_rect: PdfRect = convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
             return self._convert_pdfrect_to_list_str(pdf_rect)
+
+        # Form field item has no provenance, its bbox has to cover the widget so SDK puts the widget into it
+        if isinstance(item, FieldItem):
+            return self._calculate_bbox_from_children(element.children, page_view, page_height)
 
         return None
 
@@ -649,6 +674,47 @@ class AbstractTemplateJsonCreator(ABC):
                 "pagemap": self.page_map_settings,
             },
         }
+
+    def _get_checkbox_actual_text(self, label: str, checked: bool) -> str:
+        """
+        Create actual text for printed checkbox the same way as screen readers announce interactive checkbox (label,
+        role, state). Box symbols are dropped, screen readers do not read empty box symbol reliably.
+
+        Args:
+            label (str): Text of the checkbox from Docling.
+            checked (bool): Whether the checkbox is checked.
+
+        Returns:
+            Actual text for the checkbox.
+        """
+        state: str = "checked" if checked else "not checked"
+        label = " ".join(label.split()).strip("\u2610\u2611\u2612 ")
+        if label:
+            return f"{label}, check box, {state}"
+        return f"check box, {state}"
+
+    def _get_field_info(self, element: InternalElement) -> str:
+        """
+        Describe form field from Docling data for template comment (keys, value, checkbox state and hints).
+
+        Args:
+            element (InternalElement): Internal element of form field item.
+
+        Returns:
+            Form field description.
+        """
+        info: list[str] = []
+        for child in element.children:
+            child_item: NodeItem = child.item
+            if not isinstance(child_item, TextItem):
+                continue
+            if isinstance(child_item, FieldValueItem):
+                info.append(f"Value ({child_item.kind}): '{child_item.orig}'")
+            elif child_item.label == DocItemLabel.FIELD_KEY:
+                info.append(f"Key: '{child_item.text}'")
+            elif child_item.label == DocItemLabel.FIELD_HINT:
+                info.append(f"Hint: '{child_item.text}'")
+        return " ".join(info)
 
     def _get_cell_scope(self, cell: TableCell) -> str:
         """

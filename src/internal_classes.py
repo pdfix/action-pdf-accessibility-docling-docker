@@ -61,7 +61,8 @@ class InternalElement:
         Returns:
             Unique identifier as string.
         """
-        node_id: str = self.item.self_ref.replace("#", "").replace("/", "")
+        # PDFix SDK does not allow '_' in element names (e.g. '#/field_regions/0')
+        node_id: str = self.item.self_ref.replace("#", "").replace("/", "").replace("_", "")
         return node_id
 
     def debug_info(self, level: int) -> str:

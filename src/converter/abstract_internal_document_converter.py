@@ -108,7 +108,7 @@ class AbstractInternalDocumentConverter(ABC):
         """
         internal_elements: list[InternalElement] = []
 
-        if isinstance(item, DocItem):
+        if isinstance(item, DocItem) and len(item.prov) > 0:
             provenances: list[ProvenanceItem] = item.prov
             for index in range(len(provenances)):
                 internal_element: InternalElement = InternalElement(item, parent)
@@ -120,7 +120,8 @@ class AbstractInternalDocumentConverter(ABC):
                     internal_elements[0].is_continuous = True
                 internal_elements.append(internal_element)
             internal_element = internal_elements[0]
-        elif isinstance(item, GroupItem):
+        elif isinstance(item, (GroupItem, DocItem)):
+            # Groups and items without provenance (form field item) get their page from children
             internal_element = InternalElement(item, parent)
             internal_element.provenance_index = -1
             internal_elements.append(internal_element)
@@ -136,7 +137,8 @@ class AbstractInternalDocumentConverter(ABC):
                 if child_item is None:
                     continue
                 child_elements: list[InternalElement] = self._create_elements(document, child_item, internal_element)
-                children.extend(child_elements)
+                # Items without provenance and children (form field checkbox state, hint copy) have no page
+                children.extend([child for child in child_elements if child.page_number >= 0])
 
             page_children: dict[int, list[InternalElement]] = {}
             for child in children:
@@ -192,4 +194,10 @@ class AbstractInternalDocumentConverter(ABC):
         for form_item in document.form_items:
             if form_item.self_ref == reference:
                 return form_item
+        for field_region in document.field_regions:
+            if field_region.self_ref == reference:
+                return field_region
+        for field_item in document.field_items:
+            if field_item.self_ref == reference:
+                return field_item
         return None
