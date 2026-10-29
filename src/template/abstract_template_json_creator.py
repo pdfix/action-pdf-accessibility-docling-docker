@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from docling_core.types.doc import (
+    AnyTableCell,
     BoundingBox,
     CodeItem,
     DescriptionAnnotation,
@@ -24,6 +25,7 @@ from docling_core.types.doc import (
     NodeItem,
     PictureItem,
     ProvenanceItem,
+    RichTableCell,
     SectionHeaderItem,
     TableCell,
     TableData,
@@ -49,6 +51,48 @@ class Placement(Enum):
     BEFORE = "before"
     AFTER = "after"
     SKIP = "skip"
+    TABLE = "table"  # Content of rich table cell, placed into its cell by _create_cells
+
+
+# Children of table cell (TD/TH) according to ISO/TS 32005 Table 5 (PDF 1.7 and PDF 2.0 namespaces, checked by
+# veraPDF). ISO 32000-1 has no such rules (its Annex L are colour plates) and PDF/UA-1 does not check TD content.
+# Allowed: P, H (at most one), H1-H6, L, Lbl, Div, Sect, Art, Table (complete Table -> TR -> TD), Figure, Formula, Form,
+# Note (PDF 1.7) / FENote (PDF 2.0), Index, BibEntry, Reference, Code, Span, Link, Annot, Quote, Em, Strong, Ruby,
+# Warichu.
+# Forbidden: TR, TD, TH, THead, TBody, TFoot, LI, LBody, Document, DocumentFragment, Part, Title, Caption, BlockQuote,
+# Aside, Sub, TOC, TOCI, RB, RT, RP, WT, WP.
+CELL_FORBIDDEN_TAGS: set[str] = {
+    "TR",
+    "TD",
+    "TH",
+    "THead",
+    "TBody",
+    "TFoot",
+    "LI",
+    "LBody",
+    "Document",
+    "DocumentFragment",
+    "Part",
+    "Title",
+    "Caption",
+    "BlockQuote",
+    "Aside",
+    "Sub",
+    "TOC",
+    "TOCI",
+    "RB",
+    "RT",
+    "RP",
+    "WT",
+    "WP",
+}
+# Forbidden tags whose text is still a regular cell content, they become P
+CELL_TAGS_TO_P: set[str] = {"Caption", "Title"}
+# TODO(SDK): PDFix SDK allows only pde_text under pde_cell, other types fail whole tagging with error 70 (template node
+# has an invalid or missing parent) even when PDF specification allows them under TD. Until it is fixed in SDK these
+# elements are disabled and SDK puts their content into the cell itself (images become Figure, texts become P).
+# Remove type from this set once SDK supports it under pde_cell.
+CELL_SDK_DISABLED_TYPES: set[str] = {"pde_container", "pde_image", "pde_list", "pde_table"}
 
 
 class AbstractTemplateJsonCreator(ABC):
@@ -180,6 +224,14 @@ class AbstractTemplateJsonCreator(ABC):
         if element.parent is not None and include_parent_key:
             result["parent"] = element.parent.id()
 
+        self._check_rich_cell_content_parent(element)
+
+        # Rich table cells reference their content (group) which docling puts under the table
+        rich_cell_refs: set[str] = set()
+        if isinstance(item, TableItem):
+            rich_cell_refs = {cell.ref.cref for cell in item.data.table_cells if isinstance(cell, RichTableCell)}
+        table_rich_cells: dict[str, InternalElement] = {}
+
         # Children of element (resursivity)
         children: list[dict] = []
 
@@ -197,8 +249,13 @@ class AbstractTemplateJsonCreator(ABC):
                         result.pop("parent", None)
                     result["caption"] = child.id()
             elif isinstance(item, TableItem):
-                # Do not add anything under table
-                place_element = Placement.AFTER
+                if child.item.self_ref in rich_cell_refs:
+                    place_element = Placement.TABLE
+                else:
+                    # Do not add anything under table
+                    place_element = Placement.AFTER
+                    if not isinstance(child.item, TextItem):
+                        logger.warning(f"Table {element_ref} child {child.id()} is not content of any rich cell.")
             elif isinstance(item, PictureItem):
                 # Under picture should not be any footnotes
                 if isinstance(child.item, TextItem) and child.item.label == DocItemLabel.FOOTNOTE:
@@ -211,6 +268,11 @@ class AbstractTemplateJsonCreator(ABC):
 
             # We do not want this child in template JSON
             if place_element == Placement.SKIP:
+                continue
+
+            # Rich table cell content is created later inside its cell
+            if place_element == Placement.TABLE:
+                table_rich_cells[child.item.self_ref] = child
                 continue
 
             # Create children elements
@@ -227,12 +289,7 @@ class AbstractTemplateJsonCreator(ABC):
 
         # Add children node to template
         if len(children) > 0:
-            result["element_template"] = {
-                "template": {
-                    "element_create": [{"elements": children, "statement": "$if"}],
-                    "pagemap": self.page_map_settings,
-                },
-            }
+            result["element_template"] = self._create_element_template(children)
 
         # Add note to comment about hyperlinks
         if isinstance(item, TextItem):
@@ -335,14 +392,11 @@ class AbstractTemplateJsonCreator(ABC):
         elif isinstance(item, TableItem):
             table_data: TableData = item.data
             table_pdfrect: PdfRect = self._get_table_pdfrect(element, page_view, page_height)
-            cells: list = self._create_cells(table_pdfrect, table_data, page_view, page_height, element_ref)
+            cells: list = self._create_cells(
+                table_pdfrect, table_data, page_view, page_height, element_ref, table_rich_cells
+            )
             if "element_template" not in result:
-                result["element_template"] = {
-                    "template": {
-                        "element_create": [{"elements": cells, "statement": "$if"}],
-                        "pagemap": self.page_map_settings,
-                    },
-                }
+                result["element_template"] = self._create_element_template(cells)
             else:
                 nested_elements: list[dict] = result["element_template"]["template"]["element_create"][0]["elements"]
                 nested_elements.extend(cells)
@@ -490,7 +544,13 @@ class AbstractTemplateJsonCreator(ABC):
         return PdfRect()
 
     def _create_cells(
-        self, table_pdfrect: PdfRect, table: TableData, page_view: PdfPageView, page_height: float, table_ref: str
+        self,
+        table_pdfrect: PdfRect,
+        table: TableData,
+        page_view: PdfPageView,
+        page_height: float,
+        table_ref: str,
+        table_rich_cells: dict[str, InternalElement],
     ) -> list:
         """
         Create cells for table.
@@ -501,12 +561,13 @@ class AbstractTemplateJsonCreator(ABC):
             page_view (PdfPageView): PDFix page view to create cells for.
             page_height (float): Height of the page to create cells for.
             table_ref (str): Table unique identifier.
+            table_rich_cells (dict[str, InternalElement]): Content of rich cells by its Docling reference.
 
         Returns:
             List of cells for table.
         """
         cells: list = []
-        table_cells: list[list[TableCell]] = table.grid
+        table_cells: list[list[AnyTableCell]] = table.grid
 
         for row_index, row in enumerate(table_cells):
             for col_index, cell in enumerate(row):
@@ -535,6 +596,18 @@ class AbstractTemplateJsonCreator(ABC):
 
                     if cell.text:
                         cell_dict["text"] = cell.text
+
+                    if isinstance(cell, RichTableCell):
+                        cell_name: str = f"Table {table_ref} cell [{cell_row}, {cell_column}]"
+                        rich_cell: Optional[InternalElement] = table_rich_cells.get(cell.ref.cref)
+                        if rich_cell is None:
+                            logger.warning(f"{cell_name}: content {cell.ref.cref} of rich cell is not under table.")
+                        else:
+                            cell_elements: list[dict] = self._create_rich_cell_elements(
+                                rich_cell, page_view, page_height, cell_name
+                            )
+                            if len(cell_elements) > 0:
+                                cell_dict["element_template"] = self._create_element_template(cell_elements)
                 else:
                     cell_dict["cell_column_span"] = 0
                     cell_dict["cell_row_span"] = 0
@@ -542,6 +615,77 @@ class AbstractTemplateJsonCreator(ABC):
                 cells.append(cell_dict)
 
         return cells
+
+    def _create_rich_cell_elements(
+        self, rich_cell: InternalElement, page_view: PdfPageView, page_height: float, cell_name: str
+    ) -> list[dict]:
+        """
+        Create elements for content of rich table cell. Docling wraps the content into a group which is dropped and its
+        children go directly under the cell. Only these direct children are checked whether they can be under TD.
+
+        Args:
+            rich_cell (InternalElement): Content of rich cell referenced by the cell (group or form field).
+            page_view (PdfPageView): PDFix page view to create elements for.
+            page_height (float): Height of the page to create elements for.
+            cell_name (str): Table and cell position for log messages.
+
+        Returns:
+            List of elements for template JSON of the cell.
+        """
+        contents: list[InternalElement] = rich_cell.children if isinstance(rich_cell.item, GroupItem) else [rich_cell]
+        results: list[dict] = []
+
+        for content in contents:
+            for result in self._create_elements(content, page_view, page_height, False):
+                tag: Optional[str] = result.get("tag")
+                flags: list[str] = result.get("flag", "").split("|")
+                if tag in CELL_TAGS_TO_P:
+                    result.pop("tag")
+                elif tag in CELL_FORBIDDEN_TAGS or "header" in flags or "footer" in flags:
+                    skipped: str = f"{result['name']} ({tag or result['type']})"
+                    logger.warning(f"{cell_name}: skipped element {skipped}, it can not be under TD.")
+                    continue
+                elif result["type"] in ("pde_header", "pde_footer"):
+                    logger.warning(f"{cell_name}: skipped element {result['name']} ({result['type']}).")
+                    continue
+                elif result["type"] in CELL_SDK_DISABLED_TYPES:
+                    # TODO(SDK): see CELL_SDK_DISABLED_TYPES (form fields are pde_container and stay disabled for now)
+                    result["disable"] = True
+                results.append(result)
+
+        return results
+
+    def _create_element_template(self, elements: list[dict]) -> dict:
+        """
+        Create nested template with elements under its parent element.
+
+        Args:
+            elements (list[dict]): Elements under parent element.
+
+        Returns:
+            Element template for template JSON.
+        """
+        return {
+            "template": {
+                "element_create": [{"elements": elements, "statement": "$if"}],
+                "pagemap": self.page_map_settings,
+            },
+        }
+
+    def _check_rich_cell_content_parent(self, element: InternalElement) -> None:
+        """
+        Content of rich table cell (group or form field) has table as its parent in Docling data. If it is not under
+        its table also in internal representation it can not be placed into its cell, that is probably Docling bug.
+
+        Args:
+            element (InternalElement): Internal element to check.
+        """
+        item: NodeItem = element.item
+        if isinstance(item, TextItem) or item.parent is None or not item.parent.cref.startswith("#/tables/"):
+            return
+
+        if element.parent is None or element.parent.item.self_ref != item.parent.cref:
+            logger.warning(f"Element {element.id()} is not under its table {item.parent.cref}.")
 
     def _get_cell_scope(self, cell: TableCell) -> str:
         """
