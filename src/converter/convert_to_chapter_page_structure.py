@@ -1,7 +1,6 @@
 import logging
 
 from docling_core.types.doc import DocItem, DoclingDocument
-from hierarchical.postprocessor import ResultPostprocessor
 
 from converter.convert_to_chapter_structure import ConvertToChapterStructure
 from internal_classes import InternalDocument, InternalElement
@@ -12,8 +11,8 @@ logger: logging.Logger = get_logger()
 
 class ConvertToChapterPageStructure(ConvertToChapterStructure):
     """
-    Converts DoclingDocument into InternalDocument that keeps the chapter/section hierarchy of the Docling
-    post-processing reading order, but places that hierarchy back under pages.
+    Converts DoclingDocument into InternalDocument that keeps the chapter/section hierarchy of the Docling reading
+    order, but places that hierarchy back under pages.
 
     Elements spanning several pages are duplicated per page: every clone keeps only the children that belong to
     its page and clones after the first one reference the first clone as their continuous element.
@@ -26,8 +25,6 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
         Returns:
             InternalDocument with pages, each holding chapter/section hierarchy of that page.
         """
-        # The postprocessor modifies the result.document in place.
-        ResultPostprocessor(self.result).process()
         document: DoclingDocument = self.result.document
 
         bar_budget: int = 4 + len(document.pages)
@@ -39,7 +36,7 @@ class ConvertToChapterPageStructure(ConvertToChapterStructure):
         internal_document.pages = self._create_pages(document, bar_step)
 
         # Transform Docling data into internal data structure
-        elements: list[InternalElement] = self._create_root_list(document)
+        elements: list[InternalElement] = self._nest_under_headings(self._create_root_list(document))
         self.progress_bar.update(bar_step)
 
         internal_document.ordered_elements = elements

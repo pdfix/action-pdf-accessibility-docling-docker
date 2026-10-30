@@ -3,7 +3,6 @@ from typing import Optional
 
 from docling_core.types.doc import DoclingDocument, NodeItem
 from docling_core.types.doc.document import ContentLayer, GroupItem, GroupLabel, SectionHeaderItem
-from hierarchical.postprocessor import ResultPostprocessor
 
 from converter.abstract_internal_document_converter import AbstractInternalDocumentConverter
 from internal_classes import InternalDocument, InternalElement
@@ -27,8 +26,6 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
         bar_budget: int = 1 + 3
         bar_step: float = self.convert_step_units / bar_budget
 
-        # The postprocessor modifies the result.document in place.
-        ResultPostprocessor(self.result).process()
         document: DoclingDocument = self.result.document
         self.progress_bar.update(bar_step)
 
@@ -36,7 +33,7 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
         internal_document: InternalDocument = InternalDocument()
 
         # Transform Docling data into internal data structure
-        elements: list[InternalElement] = self._create_root_list(document)
+        elements: list[InternalElement] = self._nest_under_headings(self._create_root_list(document))
         self.progress_bar.update(bar_step)
 
         internal_document.ordered_elements = elements
@@ -72,9 +69,47 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
                 continue
 
             elements: list[InternalElement] = self._create_elements(document, item, None)
-            root_list.extend(elements)
+            # Empty groups (Docling creates empty key_value_area groups) have no page
+            root_list.extend([element for element in elements if element.page_number >= 0])
 
         return root_list
+
+    def _nest_under_headings(self, elements: list[InternalElement]) -> list[InternalElement]:
+        """
+        Nest root elements under section headers by their levels, so chapters and sections can be created from them.
+        Content after a heading becomes its child and a heading becomes child of the closest previous heading with
+        lower level. Page headers and footers stay in root. Headings inside groups (lists, tables, ...) stay there.
+
+        Args:
+            elements (list[InternalElement]): Root elements in Docling reading order.
+
+        Returns:
+            Root elements with the rest nested under headings.
+        """
+        result: list[InternalElement] = []
+        # Pairs (level, heading element) of the current chain of parent headings
+        stack: list[tuple[int, InternalElement]] = []
+
+        for element in elements:
+            if element.item.content_layer == ContentLayer.FURNITURE:
+                result.append(element)
+                continue
+
+            if isinstance(element.item, SectionHeaderItem):
+                while len(stack) > 0 and stack[-1][0] >= element.item.level:
+                    stack.pop()
+
+            if len(stack) > 0:
+                parent: InternalElement = stack[-1][1]
+                element.parent = parent
+                parent.children.append(element)
+            else:
+                result.append(element)
+
+            if isinstance(element.item, SectionHeaderItem):
+                stack.append((element.item.level, element))
+
+        return result
 
     def _join_and_filter_elements(self, elements: list[InternalElement]) -> list[InternalElement]:
         """
@@ -91,7 +126,7 @@ class ConvertToChapterStructure(AbstractInternalDocumentConverter):
         for element in elements:
             id: str = element.id()
 
-            # Page -1 hierarchy -> problem in docling post-process -> skip it
+            # Element without page cannot be placed into template -> skip it
             if element.page_number < 1:
                 logger.warning(f"Page number is less than 1 for element: '{id}' skipping it...")
                 continue
