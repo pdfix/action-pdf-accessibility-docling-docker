@@ -231,6 +231,10 @@ class AbstractTemplateJsonCreator(ABC):
                 # and puts it into the element whose bbox covers it, so the widget lands in this field item.
                 if isinstance(child.item, FieldValueItem) and child.item.kind == "fillable":
                     place_element = Placement.SKIP
+            elif isinstance(item, ListItem) and isinstance(child.item, FieldItem):
+                # SDK does not allow container under list item (pde_text). List item gets bbox of the field instead, so
+                # SDK puts the field key text and the widget into it. Field info is in list item comment.
+                place_element = Placement.SKIP
 
             # We do not want this child in template JSON
             if place_element == Placement.SKIP:
@@ -304,6 +308,9 @@ class AbstractTemplateJsonCreator(ABC):
             if item.marker:
                 result["label_text"] = item.marker
             result["label"] = "label_list"
+            for child in element.children:
+                if isinstance(child.item, FieldItem):
+                    result["comment"] = f"{result['comment']} {self._get_field_info(child)}"
             result["type"] = "pde_text"
         elif isinstance(item, CodeItem):
             language: str = item.code_language
@@ -464,13 +471,55 @@ class AbstractTemplateJsonCreator(ABC):
         if isinstance(item, DocItem) and len(item.prov) > 0:
             provenance: ProvenanceItem = item.prov[element.provenance_index]
             pdf_rect: PdfRect = convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
+            # Form area from layout can be narrower than widgets of its fields, SDK does not tag widget sticking out
+            if isinstance(item, FieldRegionItem):
+                self._extend_pdfrect(pdf_rect, self._get_descendants_with_provenance(element), page_view, page_height)
             return self._convert_pdfrect_to_list_str(pdf_rect)
 
-        # Form field item has no provenance, its bbox has to cover the widget so SDK puts the widget into it
-        if isinstance(item, FieldItem):
-            return self._calculate_bbox_from_children(element.children, page_view, page_height)
+        # Form field item has no provenance, its bbox has to cover the widget so SDK puts the widget into it. Other items
+        # without provenance inside form area (e.g. list item holding field item and its list) need bbox too, because
+        # SDK skips element without bbox under parent with bbox (form area) together with its content.
+        if isinstance(item, FieldItem) or self._is_in_field_region(element):
+            descendants: list[InternalElement] = self._get_descendants_with_provenance(element)
+            if len(descendants) > 0:
+                return self._calculate_bbox_from_children(descendants, page_view, page_height)
 
         return None
+
+    def _is_in_field_region(self, element: InternalElement) -> bool:
+        """
+        Check if element is inside form area.
+
+        Args:
+            element (InternalElement): Internal element to check.
+
+        Returns:
+            True if any ancestor of element is form area (field region).
+        """
+        parent: Optional[InternalElement] = element.parent
+        while parent is not None:
+            if isinstance(parent.item, FieldRegionItem):
+                return True
+            parent = parent.parent
+        return False
+
+    def _get_descendants_with_provenance(self, element: InternalElement) -> list[InternalElement]:
+        """
+        Get closest descendants that have provenance (their bboxes cover all deeper descendants).
+
+        Args:
+            element (InternalElement): Internal element to search descendants of.
+
+        Returns:
+            List of descendants with provenance.
+        """
+        descendants: list[InternalElement] = []
+        for child in element.children:
+            if isinstance(child.item, DocItem) and len(child.item.prov) > 0:
+                descendants.append(child)
+            else:
+                descendants.extend(self._get_descendants_with_provenance(child))
+        return descendants
 
     def _convert_pdfrect_to_list_str(self, pdf_rect: PdfRect) -> list[str]:
         """
@@ -828,26 +877,42 @@ class AbstractTemplateJsonCreator(ABC):
 
         for child in children:
             if isinstance(child.item, DocItem) and len(child.item.prov) > 0:
-                provenance: ProvenanceItem = child.item.prov[0]
-                bbox: BoundingBox = provenance.bbox
-                pdf_rect: PdfRect = convert_bbox_to_pdfrect(bbox, page_view, page_height)
-
                 if result is None:
-                    result = pdf_rect
+                    provenance: ProvenanceItem = child.item.prov[0]
+                    bbox: BoundingBox = provenance.bbox
+                    result = convert_bbox_to_pdfrect(bbox, page_view, page_height)
                 else:
-                    if pdf_rect.left < result.left:
-                        result.left = pdf_rect.left
-                    if pdf_rect.bottom < result.bottom:
-                        result.bottom = pdf_rect.bottom
-                    if pdf_rect.right > result.right:
-                        result.right = pdf_rect.right
-                    if pdf_rect.top > result.top:
-                        result.top = pdf_rect.top
+                    self._extend_pdfrect(result, [child], page_view, page_height)
 
         if result is None:
             return ["0", "0", "0", "0"]
 
         return self._convert_pdfrect_to_list_str(result)
+
+    def _extend_pdfrect(
+        self, result: PdfRect, elements: list[InternalElement], page_view: PdfPageView, page_height: float
+    ) -> None:
+        """
+        Extend rectangle so it covers bounding boxes of elements.
+
+        Args:
+            result (PdfRect): Rectangle to extend in place.
+            elements (list[InternalElement]): Internal elements whose bounding boxes have to be covered.
+            page_view (PdfPageView): PDFix page view to convert bounding boxes.
+            page_height (float): Height of the page to convert bounding boxes.
+        """
+        for element in elements:
+            if isinstance(element.item, DocItem) and len(element.item.prov) > 0:
+                provenance: ProvenanceItem = element.item.prov[0]
+                pdf_rect: PdfRect = convert_bbox_to_pdfrect(provenance.bbox, page_view, page_height)
+                if pdf_rect.left < result.left:
+                    result.left = pdf_rect.left
+                if pdf_rect.bottom < result.bottom:
+                    result.bottom = pdf_rect.bottom
+                if pdf_rect.right > result.right:
+                    result.right = pdf_rect.right
+                if pdf_rect.top > result.top:
+                    result.top = pdf_rect.top
 
     def _postprocess_template_block(self, template_block: dict) -> dict:
         """
