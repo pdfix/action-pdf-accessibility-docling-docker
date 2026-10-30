@@ -5,9 +5,12 @@ from typing import Optional
 from docling_core.types.doc import (
     DocItem,
     DocItemLabel,
+    FieldHeadingItem,
     GroupItem,
     GroupLabel,
     NodeItem,
+    PictureItem,
+    SectionHeaderItem,
     TextItem,
 )
 
@@ -53,6 +56,8 @@ class InternalElement:
         self.continuous_element: Optional["InternalElement"] = None
         # True also for the first element of a continuous chain, which has no continuous_element reference
         self.is_continuous: bool = False
+        # Heading level normalized through the whole document (see InternalDocument.normalize_heading_levels)
+        self.heading_level: Optional[int] = None
 
     def id(self) -> str:
         """
@@ -247,3 +252,32 @@ class InternalDocument:
         """
         for page in self.pages:
             page.group_headers_and_footers()
+
+    def normalize_heading_levels(self) -> None:
+        """
+        Normalize heading levels in reading order so the first heading is H1 and the level rises by at most one.
+
+        PDFix SDK tags a heading that skips a level (H1 -> H3) or starts below H1 as P, and PDF/UA-1 does not allow
+        skipped levels either. Docling levels keep their meaning relatively: a heading gets one level more than the
+        closest previous heading with a lower Docling level, headings with the same Docling level stay siblings.
+        Example: h2, h4, h4, h3, h2, h6 -> h1, h2, h2, h2, h1, h2.
+        """
+        # Pairs (Docling level, normalized level) of the current chain of parent headings
+        stack: list[tuple[int, int]] = []
+
+        def walk(element: InternalElement) -> None:
+            # Texts under picture and page headers/footers are not tagged as headings (see template creation)
+            if isinstance(element.item, PictureItem) or element.group != InternalElementGroup.NONE:
+                return
+            if isinstance(element.item, (SectionHeaderItem, FieldHeadingItem)):
+                level: int = element.item.level
+                while len(stack) > 0 and stack[-1][0] >= level:
+                    stack.pop()
+                element.heading_level = stack[-1][1] + 1 if len(stack) > 0 else 1
+                stack.append((level, element.heading_level))
+            for child in element.children:
+                walk(child)
+
+        elements: list[InternalElement] = [element for page in self.pages for element in page.ordered_elements]
+        for element in elements if len(elements) > 0 else self.ordered_elements:
+            walk(element)

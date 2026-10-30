@@ -56,6 +56,7 @@ class DoclingConverter:
         """
         document: InternalDocument = self._converter.convert()
         document.group_page_headers_and_footers()
+        document.normalize_heading_levels()
         logger.info(document.debug_info())
         return document
 

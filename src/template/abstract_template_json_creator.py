@@ -297,7 +297,7 @@ class AbstractTemplateJsonCreator(ABC):
             result["tag"] = "Title"
             result["type"] = "pde_text"
         elif isinstance(item, (SectionHeaderItem, FieldHeadingItem)):
-            level: int = item.level
+            level: int = element.heading_level if element.heading_level is not None else item.level
             result["comment"] = result["comment"].replace(label, f"{label} {level}")
             result["heading"] = f"h{level}"
             result["type"] = "pde_text"
