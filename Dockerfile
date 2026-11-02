@@ -1,19 +1,6 @@
 # Use the official Debian slim image with python 3.12 as a base (transformers from hugging face does not work with python 3.13 atm)
 FROM python:3.12-slim
 
-# Update system and Install python3 and necessary dependencies
-RUN apt-get update && \
-    apt-get install -y \
-    python3-pip \
-    python3-venv \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /usr/docling/
 
 # Create a virtual environment and install dependencies
