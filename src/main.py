@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from autotag import AutotagUsingDoclingLayoutRecognition
-from constants import CONFIG_FILE, RD_DOCLING, RD_PDF, RD_PDFIX, RD_XY, RENDER_HYBRID
+from constants import CONFIG_FILE, RENDER_HYBRID
 from create_template import CreateTemplateJsonUsingDocling
 from exceptions import (
     EC_ARG_GENERAL,
@@ -89,19 +89,12 @@ def set_arguments(
                 parser.add_argument("--name", type=str, default="", nargs="?", help="PDFix license name.")
             case "output":
                 parser.add_argument("--output", "-o", type=str, required=required_output, help=output_help)
-            case "reading_order":
-                pdfix_explain: str = f"'{RD_PDFIX}' uses PDFix SDK reading order"
-                docling_explain: str = f"'{RD_DOCLING}' uses Docling post-processing reading order"
-                pdf_explain: str = f"'{RD_PDF}' uses PDF reading order"
-                x_y_explain: str = f"'{RD_XY}' uses X and Y coordinates to determine reading order"
-                explanation_sentece: str = f"{pdfix_explain}, {docling_explain}, {pdf_explain}, {x_y_explain}."
-                parser.add_argument(
-                    "--reading_order",
-                    type=str,
-                    choices=[RD_PDFIX, RD_DOCLING, RD_PDF, RD_XY],
-                    default=RD_DOCLING,
-                    help=f"Select reading order for the document. {explanation_sentece}",
+            case "chapters":
+                chapters_help: str = (
+                    "true: structure the document into chapters and sections (Part and Sect tags) by its headings."
+                    + " false: structure the document by pages."
                 )
+                parser.add_argument("--chapters", type=str2bool, default=True, help=chapters_help)
 
 
 def run_config_subcommand(args) -> None:
@@ -135,7 +128,7 @@ def run_autotag_subcommand(args) -> None:
         args.do_formula_recognition,
         args.do_image_description,
         args.bbox_overlap,
-        args.reading_order,
+        args.chapters,
     )
 
 
@@ -147,7 +140,7 @@ def autotagging_pdf(
     do_formula_recognition: bool,
     do_image_description: bool,
     bbox_overlap: float,
-    reading_order: str,
+    chapters: bool,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -160,7 +153,7 @@ def autotagging_pdf(
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
-        reading_order (str): Reading order for the document.
+        chapters (bool): Group content under headings into chapters and sections.
     """
     render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
@@ -172,7 +165,7 @@ def autotagging_pdf(
             do_formula_recognition,
             do_image_description,
             bbox_overlap,
-            reading_order,
+            chapters,
             render,
         )
         autotag.process_file()
@@ -189,7 +182,7 @@ def run_template_subcommand(args) -> None:
         args.do_formula_recognition,
         args.do_image_description,
         args.bbox_overlap,
-        args.reading_order,
+        args.chapters,
     )
 
 
@@ -201,7 +194,7 @@ def create_template_json(
     do_formula_recognition: bool,
     do_image_description: bool,
     bbox_overlap: float,
-    reading_order: str,
+    chapters: bool,
 ) -> None:
     """
     Creating template json for PDF document using provided arguments
@@ -214,7 +207,7 @@ def create_template_json(
         do_formula_recognition (bool): Do also formula recognition.
         do_image_description (bool): Do also image desrciption.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
-        reading_order (str): Reading order for the document.
+        chapters (bool): Group content under headings into chapters and sections.
     """
     render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
@@ -226,7 +219,7 @@ def create_template_json(
             do_formula_recognition,
             do_image_description,
             bbox_overlap,
-            reading_order,
+            chapters,
             render,
         )
         template_creator.process_file()
@@ -269,7 +262,7 @@ def main() -> None:
             "do_formula_recognition",
             "do_image_description",
             "bbox_overlap",
-            "reading_order",
+            "chapters",
         ],
         True,
         "The output PDF file.",
@@ -291,7 +284,7 @@ def main() -> None:
             "do_formula_recognition",
             "do_image_description",
             "bbox_overlap",
-            "reading_order",
+            "chapters",
         ],
         True,
         "The output JSON file.",

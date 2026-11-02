@@ -44,7 +44,7 @@ docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:lates
 | `--do_image_description` | no | Boolean string: `true`/`false`, `yes`/`no`, `1`/`0` (default: `false`) | Alt text for Figure tags |
 | `--do_formula_recognition` | no | Boolean string (default: `false`) | Formula recognition |
 | `--bbox_overlap` | no | Float (default **0.6**) | Docling bbox overlap threshold |
-| `--reading_order` | no | One string from `pdfix_rd`, `docling_rd`, `pdf_rd` and `x_y_rd` (default: `docling_rd`) | Reading order logic |
+| `--chapters` | no | Boolean string (default: `true`) | `true`: structure the document into chapters and sections (`Part`, `Sect`) by its headings; `false`: structure the document by pages |
 
 ## Examples
 
@@ -54,9 +54,9 @@ Tag a PDF:
 docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:latest \
   tag --name "${LICENSE_NAME}" --key "${LICENSE_KEY}" \
   -i /data/input.pdf -o /data/output.pdf \
-  --do_image_description true --do_formula_recognition true
-  --bbox_overlap 0.8
-  --reading_order x_y_rd
+  --do_image_description true --do_formula_recognition true \
+  --bbox_overlap 0.8 \
+  --chapters false
 ```
 
 Create a layout template JSON:

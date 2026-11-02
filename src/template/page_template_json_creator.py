@@ -1,6 +1,7 @@
 from typing import Optional
 
 from pdfixsdk import GetPdfix, PdfDoc, Pdfix, PdfPage, PdfPageView
+from tqdm import tqdm
 
 from constants import ZOOM
 from exceptions import PdfixFailedToOpenException, PdfixFailedToTagException, PdfixInitializeException
@@ -10,8 +11,21 @@ from template.abstract_template_json_creator import AbstractTemplateJsonCreator
 
 class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
     """
-    Template JSON built from per-page blocks (element_create entries with $page_num query).
+    Template JSON built from per-page blocks (element_create entries with $page_num query) holding the page content
+    in Docling reading order. Docling reading order is kept: rd_sort 3 and elements marked with rd_index, without
+    them PDFix SDK sorts elements by its own heuristic.
     """
+
+    def __init__(
+        self,
+        input_path_str: str,
+        bbox_overlap: float,
+        progress_bar: tqdm,
+        total_progress_units: int,
+    ) -> None:
+        super().__init__(input_path_str, bbox_overlap, progress_bar, total_progress_units)
+        self.page_map_settings[0]["rd_sort"] = "3"
+        self.add_rd_indexes = True
 
     def process_document(self, document: InternalDocument) -> dict:
         """
@@ -90,7 +104,7 @@ class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
 
     def _get_ordered_page_elements(self, page: InternalPage) -> list[InternalElement]:
         """
-        Apply the selected reading order while keeping page furniture at the template boundaries.
+        Keep page furniture at the template boundaries.
 
         Args:
             page (InternalPage): Page whose elements should be ordered.
@@ -98,7 +112,7 @@ class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
         Returns:
             Ordered elements with a header group first and footer group last when present.
         """
-        elements: list[InternalElement] = self._get_page_elements(page)
+        elements: list[InternalElement] = page.ordered_elements
         headers: list[InternalElement] = [
             element for element in elements if element.group == InternalElementGroup.HEADER
         ]
@@ -107,6 +121,3 @@ class PageTemplateJsonCreator(AbstractTemplateJsonCreator):
             element for element in elements if element.group == InternalElementGroup.FOOTER
         ]
         return headers + body + footers
-
-    def _get_page_elements(self, page: InternalPage) -> list[InternalElement]:
-        return page.ordered_elements

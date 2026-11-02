@@ -225,7 +225,7 @@ class InternalDocument:
         Constructor.
         """
         self.pages: list[InternalPage] = []
-        # For docling reading order (does not have page by page structure)
+        # Whole document hierarchy before it is split into pages, only for the debug dump of chapter structure
         self.ordered_elements: list[InternalElement] = []
         # Version of the installed docling package (DoclingDocument.version is only its schema version)
         self.docling_version: str = version("docling")
@@ -278,6 +278,6 @@ class InternalDocument:
             for child in element.children:
                 walk(child)
 
-        elements: list[InternalElement] = [element for page in self.pages for element in page.ordered_elements]
-        for element in elements if len(elements) > 0 else self.ordered_elements:
-            walk(element)
+        for page in self.pages:
+            for element in page.ordered_elements:
+                walk(element)

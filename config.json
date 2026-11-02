@@ -14,7 +14,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -54,29 +54,11 @@
                     "value": "0.6"
                 },
                 {
-                    "title": "Reading Order",
-                    "name": "rd",
-                    "desc": "Which reading order algorithm to use",
-                    "type": "string",
-                    "value": "docling_rd",
-                    "set": [
-                        {
-                            "desc": "PDFix SDK",
-                            "value": "pdfix_rd"
-                        },
-                        {
-                            "desc": "Docling post-processing",
-                            "value": "docling_rd"
-                        },
-                        {
-                            "desc": "PDF reading order",
-                            "value": "pdf_rd"
-                        },
-                        {
-                            "desc": "X and Y coordinates",
-                            "value": "x_y_rd"
-                        }
-                    ]
+                    "title": "Chapters and Sections",
+                    "name": "chapters",
+                    "desc": "On: structure the document into chapters and sections by its headings. Off: structure the document by pages",
+                    "type": "bool",
+                    "value": true
                 }
             ],
             "errors": {
@@ -107,7 +89,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --reading_order \"${rd}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -147,29 +129,11 @@
                     "value": "0.6"
                 },
                 {
-                    "title": "Reading Order",
-                    "name": "rd",
-                    "desc": "Which reading order algorithm to use",
-                    "type": "string",
-                    "value": "docling_rd",
-                    "set": [
-                        {
-                            "desc": "PDFix SDK",
-                            "value": "pdfix_rd"
-                        },
-                        {
-                            "desc": "Docling post-processing",
-                            "value": "docling_rd"
-                        },
-                        {
-                            "desc": "PDF reading order",
-                            "value": "pdf_rd"
-                        },
-                        {
-                            "desc": "X and Y coordinates",
-                            "value": "x_y_rd"
-                        }
-                    ]
+                    "title": "Chapters and Sections",
+                    "name": "chapters",
+                    "desc": "On: structure the document into chapters and sections by its headings. Off: structure the document by pages",
+                    "type": "bool",
+                    "value": true
                 }
             ],
             "errors": {

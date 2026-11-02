@@ -31,7 +31,7 @@ class DoclingWrapper:
         path: Path,
         do_formula_recognition: bool,
         do_image_description: bool,
-        reading_order: str,
+        chapters: bool,
         render: str,
         progress_bar: tqdm,
         progress_units_total: int,
@@ -43,7 +43,7 @@ class DoclingWrapper:
             path (Path): Path to PDF document.
             do_formula_recognition (bool): If formulas are post-processed by Docling to create LaTeX representations.
             do_image_description (bool): If pictures are post-processed by Docling to create image descriptions.
-            reading_order (str): Reading order for the document.
+            chapters (bool): Group content under headings into chapters and sections.
             render (str): How Docling renders page images for layout detection (RENDER_DEFAULT or RENDER_HYBRID).
             progress_bar (tqdm): Progress bar to update during processing.
             progress_units_total (int): Total number of units for progress bar for processing.
@@ -51,7 +51,7 @@ class DoclingWrapper:
         self.path: Path = path
         self.do_formula_recognition: bool = do_formula_recognition
         self.do_image_description: bool = do_image_description
-        self.reading_order: str = reading_order
+        self.chapters: bool = chapters
         self.render: str = render
         self.progress_bar: tqdm = progress_bar
         self.progress_units_total: int = progress_units_total
@@ -107,7 +107,7 @@ class DoclingWrapper:
 
         # Convert Docling data into internal document
         internal_converter: DoclingConverter = DoclingConverter(
-            result, self.reading_order, self.path, self.progress_bar, convert_step_units
+            result, self.chapters, self.path, self.progress_bar, convert_step_units
         )
         internal_document: InternalDocument = internal_converter.convert()
         document: DoclingDocument = result.document
@@ -115,7 +115,7 @@ class DoclingWrapper:
         # Save Docling data about document into JSON file
         outputs_folder: Path = Path(__file__).parent.parent.joinpath("outputs")
         outputs_folder.mkdir(exist_ok=True)
-        docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_{self.reading_order}_output.json")
+        docling_json_path: Path = outputs_folder.joinpath(f"{self.path.stem}_output.json")
 
         with open(docling_json_path, "w") as f:
             json.dump(document.export_to_dict(), f, indent=4)

@@ -95,7 +95,6 @@ class AbstractTemplateJsonCreator(ABC):
                 "artifact_untagged": "1",
                 "initial_elements_keep_empty": "0",
                 "initial_element_overlap": str(bbox_overlap),
-                "rd_sort": "0",
             }
         ]
 
@@ -476,9 +475,9 @@ class AbstractTemplateJsonCreator(ABC):
                 self._extend_pdfrect(pdf_rect, self._get_descendants_with_provenance(element), page_view, page_height)
             return self._convert_pdfrect_to_list_str(pdf_rect)
 
-        # Form field item has no provenance, its bbox has to cover the widget so SDK puts the widget into it. Other items
-        # without provenance inside form area (e.g. list item holding field item and its list) need bbox too, because
-        # SDK skips element without bbox under parent with bbox (form area) together with its content.
+        # Form field item has no provenance, its bbox has to cover the widget so SDK puts the widget into it. Other
+        # items without provenance inside form area (e.g. list item holding field item and its list) need bbox too,
+        # because SDK skips element without bbox under parent with bbox (form area) together with its content.
         if isinstance(item, FieldItem) or self._is_in_field_region(element):
             descendants: list[InternalElement] = self._get_descendants_with_provenance(element)
             if len(descendants) > 0:
