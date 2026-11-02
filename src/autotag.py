@@ -47,6 +47,7 @@ class AutotagUsingDoclingLayoutRecognition:
         bbox_overlap: float,
         chapters: bool,
         render: str,
+        sequential_headings: bool,
     ) -> None:
         """
         Initialize class for tagging pdf.
@@ -61,6 +62,7 @@ class AutotagUsingDoclingLayoutRecognition:
             bbox_overlap (float): How much bounding box from docling must overlap with PDF element area.
             chapters (bool): Group content under headings into chapters and sections.
             render (str): How Docling renders page images for layout detection.
+            sequential_headings (bool): PDFix SDK tags a heading that skips a level as paragraph.
         """
         self.license_name: Optional[str] = license_name
         self.license_key: Optional[str] = license_key
@@ -71,6 +73,7 @@ class AutotagUsingDoclingLayoutRecognition:
         self.bbox_overlap: float = bbox_overlap
         self.chapters: bool = chapters
         self.render: str = render
+        self.sequential_headings: bool = sequential_headings
 
     def process_file(self) -> None:
         """
@@ -191,5 +194,7 @@ class AutotagUsingDoclingLayoutRecognition:
 
         # Autotag document
         tagsParams: PdfTagsParams = PdfTagsParams()
+        # PDFix SDK default is on: a heading that skips a level (e.g. H2 when H1 was not tagged) becomes P
+        tagsParams.headings = 1 if self.sequential_headings else 0
         if not doc.AddTags(tagsParams):
             raise PdfixFailedToTagException(pdfix, "Failed to tag document")

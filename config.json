@@ -14,7 +14,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\" --render \"${render}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\" --render \"${render}\" --sequential_headings \"${sequential_headings}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -76,6 +76,13 @@
                             "value": "hybrid"
                         }
                     ]
+                },
+                {
+                    "title": "Sequential Heading Levels",
+                    "name": "sequential_headings",
+                    "desc": "Keep headings in sequentially descending order",
+                    "type": "bool",
+                    "value": false
                 }
             ],
             "errors": {

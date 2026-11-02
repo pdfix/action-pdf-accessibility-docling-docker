@@ -47,6 +47,12 @@ docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:lates
 | `--chapters` | no | Boolean string (default: `true`) | `true`: structure the document into chapters and sections (`Part`, `Sect`) by its headings; `false`: structure the document by pages |
 | `--render` | no | `default` or `hybrid` (default: `hybrid`) | How pages are rendered for layout recognition. `default`: docling-parse, better results for tables; `hybrid`: pypdfium and docling-parse, better results for lists |
 
+### `tag` only
+
+| Option | Required | Type / expected value | Description |
+|---|:---:|---|---|
+| `--sequential_headings` | no | Boolean string (default: `false`) | Keep headings in sequentially descending order: a heading that skips a level is tagged as a paragraph |
+
 ## Examples
 
 Tag a PDF:

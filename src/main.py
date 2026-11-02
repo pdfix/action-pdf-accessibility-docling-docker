@@ -95,6 +95,13 @@ def set_arguments(
                     + " false: structure the document by pages."
                 )
                 parser.add_argument("--chapters", type=str2bool, default=True, help=chapters_help)
+            case "sequential_headings":
+                parser.add_argument(
+                    "--sequential_headings",
+                    type=str2bool,
+                    default=False,
+                    help="Keep headings in sequentially descending order.",
+                )
             case "render":
                 render_help: str = (
                     f"How pages are rendered for layout recognition. {RENDER_DEFAULT}: docling-parse,"
@@ -143,6 +150,7 @@ def run_autotag_subcommand(args) -> None:
         args.bbox_overlap,
         args.chapters,
         args.render,
+        args.sequential_headings,
     )
 
 
@@ -156,6 +164,7 @@ def autotagging_pdf(
     bbox_overlap: float,
     chapters: bool,
     render: str,
+    sequential_headings: bool,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -170,6 +179,7 @@ def autotagging_pdf(
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         chapters (bool): Group content under headings into chapters and sections.
         render (str): How Docling renders page images for layout detection (RENDER_DEFAULT or RENDER_HYBRID).
+        sequential_headings (bool): Keep headings in sequentially descending order.
     """
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
@@ -182,6 +192,7 @@ def autotagging_pdf(
             bbox_overlap,
             chapters,
             render,
+            sequential_headings,
         )
         autotag.process_file()
     else:
@@ -281,6 +292,7 @@ def main() -> None:
             "bbox_overlap",
             "chapters",
             "render",
+            "sequential_headings",
         ],
         True,
         "The output PDF file.",
