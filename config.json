@@ -65,7 +65,7 @@
                     "name": "render",
                     "desc": "How pages are rendered for layout recognition",
                     "type": "string",
-                    "value": "hybrid",
+                    "value": "default",
                     "set": [
                         {
                             "desc": "docling-parse, better results for tables",
@@ -164,7 +164,7 @@
                     "name": "render",
                     "desc": "How pages are rendered for layout recognition",
                     "type": "string",
-                    "value": "hybrid",
+                    "value": "default",
                     "set": [
                         {
                             "desc": "docling-parse, better results for tables",

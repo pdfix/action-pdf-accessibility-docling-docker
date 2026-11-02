@@ -112,7 +112,7 @@ def set_arguments(
                     "--render",
                     type=str,
                     choices=[RENDER_DEFAULT, RENDER_HYBRID],
-                    default=RENDER_HYBRID,
+                    default=RENDER_DEFAULT,
                     help=render_help,
                 )
 
