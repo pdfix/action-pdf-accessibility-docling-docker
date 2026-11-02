@@ -14,7 +14,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest tag --name \"${license_name}\" --key \"${license_key}\" -i \"/data/${input_pdf}\" -o \"/data/${output_pdf}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\" --render \"${render}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -59,6 +59,23 @@
                     "desc": "On: structure the document into chapters and sections by its headings. Off: structure the document by pages",
                     "type": "bool",
                     "value": true
+                },
+                {
+                    "title": "Render",
+                    "name": "render",
+                    "desc": "How pages are rendered for layout recognition",
+                    "type": "string",
+                    "value": "hybrid",
+                    "set": [
+                        {
+                            "desc": "docling-parse, better results for tables",
+                            "value": "default"
+                        },
+                        {
+                            "desc": "pypdfium and docling-parse, better results for lists",
+                            "value": "hybrid"
+                        }
+                    ]
                 }
             ],
             "errors": {
@@ -89,7 +106,7 @@
                 "name": "pdfix/pdf-accessibility-docling",
                 "tag": "latest"
             },
-            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\"",
+            "program": "docker run --platform linux/amd64 -v \"${working_directory}:/data\" -w /data --rm pdfix/pdf-accessibility-docling:latest template -i \"/data/${input_pdf}\" -o \"/data/${output_json}\" --do_formula_recognition \"${process_formula}\" --do_image_description \"${describe_images}\" --bbox_overlap \"${bbox_overlap}\" --chapters \"${chapters}\" --render \"${render}\"",
             "args": [
                 {
                     "name": "input_pdf",
@@ -134,6 +151,23 @@
                     "desc": "On: structure the document into chapters and sections by its headings. Off: structure the document by pages",
                     "type": "bool",
                     "value": true
+                },
+                {
+                    "title": "Render",
+                    "name": "render",
+                    "desc": "How pages are rendered for layout recognition",
+                    "type": "string",
+                    "value": "hybrid",
+                    "set": [
+                        {
+                            "desc": "docling-parse, better results for tables",
+                            "value": "default"
+                        },
+                        {
+                            "desc": "pypdfium and docling-parse, better results for lists",
+                            "value": "hybrid"
+                        }
+                    ]
                 }
             ],
             "errors": {

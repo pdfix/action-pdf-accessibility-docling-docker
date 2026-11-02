@@ -93,7 +93,7 @@ class DoclingWrapper:
 
             format_option: PdfFormatOption = PdfFormatOption(pipeline_options=pipeline_options)
             if self.render == RENDER_HYBRID:
-                # Layout model detects lists, forms and tables better on page images rendered by pypdfium
+                # Layout model detects lists better on page images rendered by pypdfium (tables are better with default)
                 format_option = PdfFormatOption(pipeline_options=pipeline_options, backend=HybridDocumentBackend)
 
             converter: DocumentConverter = DocumentConverter(format_options={InputFormat.PDF: format_option})

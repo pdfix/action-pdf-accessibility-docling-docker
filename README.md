@@ -45,6 +45,7 @@ docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:lates
 | `--do_formula_recognition` | no | Boolean string (default: `false`) | Formula recognition |
 | `--bbox_overlap` | no | Float (default **0.6**) | Docling bbox overlap threshold |
 | `--chapters` | no | Boolean string (default: `true`) | `true`: structure the document into chapters and sections (`Part`, `Sect`) by its headings; `false`: structure the document by pages |
+| `--render` | no | `default` or `hybrid` (default: `hybrid`) | How pages are rendered for layout recognition. `default`: docling-parse, better results for tables; `hybrid`: pypdfium and docling-parse, better results for lists |
 
 ## Examples
 
@@ -56,7 +57,8 @@ docker run --rm -v "$(pwd)":/data -w /data pdfix/pdf-accessibility-docling:lates
   -i /data/input.pdf -o /data/output.pdf \
   --do_image_description true --do_formula_recognition true \
   --bbox_overlap 0.8 \
-  --chapters false
+  --chapters false \
+  --render default
 ```
 
 Create a layout template JSON:

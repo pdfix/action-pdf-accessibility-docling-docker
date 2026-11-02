@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from autotag import AutotagUsingDoclingLayoutRecognition
-from constants import CONFIG_FILE, RENDER_HYBRID
+from constants import CONFIG_FILE, RENDER_DEFAULT, RENDER_HYBRID
 from create_template import CreateTemplateJsonUsingDocling
 from exceptions import (
     EC_ARG_GENERAL,
@@ -95,6 +95,19 @@ def set_arguments(
                     + " false: structure the document by pages."
                 )
                 parser.add_argument("--chapters", type=str2bool, default=True, help=chapters_help)
+            case "render":
+                render_help: str = (
+                    f"How pages are rendered for layout recognition. {RENDER_DEFAULT}: docling-parse,"
+                    + f" better results for tables. {RENDER_HYBRID}: pypdfium and docling-parse,"
+                    + " better results for lists."
+                )
+                parser.add_argument(
+                    "--render",
+                    type=str,
+                    choices=[RENDER_DEFAULT, RENDER_HYBRID],
+                    default=RENDER_HYBRID,
+                    help=render_help,
+                )
 
 
 def run_config_subcommand(args) -> None:
@@ -129,6 +142,7 @@ def run_autotag_subcommand(args) -> None:
         args.do_image_description,
         args.bbox_overlap,
         args.chapters,
+        args.render,
     )
 
 
@@ -141,6 +155,7 @@ def autotagging_pdf(
     do_image_description: bool,
     bbox_overlap: float,
     chapters: bool,
+    render: str,
 ) -> None:
     """
     Autotagging PDF document with provided arguments
@@ -154,8 +169,8 @@ def autotagging_pdf(
         do_image_description (bool): Do also image desrciption.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         chapters (bool): Group content under headings into chapters and sections.
+        render (str): How Docling renders page images for layout detection (RENDER_DEFAULT or RENDER_HYBRID).
     """
-    render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".pdf"):
         autotag = AutotagUsingDoclingLayoutRecognition(
             license_name,
@@ -183,6 +198,7 @@ def run_template_subcommand(args) -> None:
         args.do_image_description,
         args.bbox_overlap,
         args.chapters,
+        args.render,
     )
 
 
@@ -195,6 +211,7 @@ def create_template_json(
     do_image_description: bool,
     bbox_overlap: float,
     chapters: bool,
+    render: str,
 ) -> None:
     """
     Creating template json for PDF document using provided arguments
@@ -208,8 +225,8 @@ def create_template_json(
         do_image_description (bool): Do also image desrciption.
         bbox_overlap (float): How much bounding box from docling must overlap with PDF element area (0 = 0%, 1 = 100%).
         chapters (bool): Group content under headings into chapters and sections.
+        render (str): How Docling renders page images for layout detection (RENDER_DEFAULT or RENDER_HYBRID).
     """
-    render: str = RENDER_HYBRID  # Combination of pypdfium and docling-parse
     if input_path.lower().endswith(".pdf") and output_path.lower().endswith(".json"):
         template_creator = CreateTemplateJsonUsingDocling(
             license_name,
@@ -263,6 +280,7 @@ def main() -> None:
             "do_image_description",
             "bbox_overlap",
             "chapters",
+            "render",
         ],
         True,
         "The output PDF file.",
@@ -285,6 +303,7 @@ def main() -> None:
             "do_image_description",
             "bbox_overlap",
             "chapters",
+            "render",
         ],
         True,
         "The output JSON file.",
